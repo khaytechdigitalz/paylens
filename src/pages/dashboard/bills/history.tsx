@@ -1,3 +1,4 @@
+/* eslint-disable import/extensions */
 /* eslint-disable react/jsx-curly-brace-presence */
 /* eslint-disable func-names */
 /* eslint-disable react/jsx-no-bind */
@@ -44,10 +45,10 @@ import {
 // utils
 import { fDate } from '../../../utils/formatTime';
 import { fCurrency } from '../../../utils/formatNumber';
-import { TransactionTableToolbar } from './TransactionTableToolbar';
+import { TransactionTableToolbar } from './billstabletoolbar';
 
 // IMPORT YOUR CUSTOM RECEIPT COMPONENT
-import TransactionReceipt from './TransactionReceipt';
+import TransactionReceipt from './receipt';
 
 // ----------------------------------------------------------------------
 
@@ -252,11 +253,18 @@ export default function BillsHistoryPage() {
 
             <TransactionTableToolbar
               filterName={filterName}
-              onFilterName={(e: { target: { value: SetStateAction<string>; }; }) => setFilterName(e.target.value)} startDate={''} endDate={''} onChangeStartDate={function (_event: React.ChangeEvent<HTMLInputElement>): void {
+              onFilterName={(e: { target: { value: SetStateAction<string> } }) =>
+                setFilterName(e.target.value)
+              }
+              startDate={''}
+              endDate={''}
+              onChangeStartDate={function (_event: React.ChangeEvent<HTMLInputElement>): void {
                 throw new Error('Function not implemented.');
-              } } onChangeEndDate={function (event: React.ChangeEvent<HTMLInputElement>): void {
+              }}
+              onChangeEndDate={function (event: React.ChangeEvent<HTMLInputElement>): void {
                 throw new Error('Function not implemented.');
-              } }            />
+              }}
+            />
 
             <Button
               variant="soft"

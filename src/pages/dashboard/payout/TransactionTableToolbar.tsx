@@ -4,7 +4,7 @@ import Iconify from '../../../components/iconify';
 type Props = {
   filterName: string;
   onFilterName: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  startDate: string; // Changed to string for native input
+  startDate: string;
   endDate: string;
   onChangeStartDate: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onChangeEndDate: (event: React.ChangeEvent<HTMLInputElement>) => void;
@@ -59,3 +59,6 @@ export function TransactionTableToolbar({
     </Stack>
   );
 }
+
+// Added Default Export
+export default TransactionTableToolbar;
