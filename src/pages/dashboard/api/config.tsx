@@ -93,8 +93,8 @@ export default function PageSix() {
 
   // API Key States
   const [showSecret, setShowSecret] = useState(false);
-  const [apiKey, setApiKey] = useState('pk_live_51Mzh29Klx0Jp0Vz7nQ9');
-  const [secretKey, setSecretKey] = useState('sk_live_99sh29Klx0Jp0Vz7nQ98872kls0');
+  const [apiKey, setApiKey] = useState('xyz');
+  const [secretKey, setSecretKey] = useState('xyz');
 
   // UI & Webhook States
   const [openRollDialog, setOpenRollDialog] = useState(false);
