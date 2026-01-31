@@ -19,6 +19,7 @@ export const PATH_DASHBOARD = {
 
   pos: {
     root: path(ROOTS_DASHBOARD, '/pos'),
+    history: path(ROOTS_DASHBOARD, '/pos/history'),
     details: (details: string) => path(ROOTS_DASHBOARD, `/pos/${details}/details`),
     transactions: path(ROOTS_DASHBOARD, '/pos/transactions'),
   },

@@ -25,9 +25,7 @@ import { useSettingsContext } from '../../components/settings';
 import Iconify from '../../components/iconify';
 // sections
 import {
-  BankingContacts,
   BankingInviteFriends,
-  BankingQuickTransfer,
   BankingCurrentBalance,
   BankingBalanceStatistics,
   BankingRecentTransitions,
@@ -37,7 +35,6 @@ import StatWidget from '../../components/widgets/StatWidget';
 
 // ----------------------------------------------------------------------
 
-// 1. TYPES
 export type RowProps = {
   id: number;
   reference: string;
@@ -69,28 +66,22 @@ export default function PageOne() {
   const { themeStretch } = useSettingsContext();
   const theme = useTheme();
 
-  // States
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [stats, setStats] = useState<Stats>({ totalinflow: 0, totaloutflow: 0 });
   const [chartData, setChartData] = useState<any>(null);
   const [transactions, setTransactions] = useState<RowProps[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // 2. DATA FETCHING & MAPPING
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
         const res = await axios.get('/dashboard');
-
         if (res.data?.data) {
           const d = res.data.data;
-
           setWallets(d.wallets || []);
           setStats(d.overall_stats || { totalinflow: 0, totaloutflow: 0 });
           setTransactions(d.recent_transactions || []);
-
-          // Map Chart Data: Ensure we extract the raw numbers
           setChartData({
             inflow: d.chart?.inflow || [],
             outflow: d.chart?.outflow || [],
@@ -108,11 +99,9 @@ export default function PageOne() {
         setLoading(false);
       }
     };
-
     fetchDashboardData();
   }, []);
 
-  // 3. CHART HELPER: Ensures 12 slots for Jan-Dec
   const formatSeries = (data: any) => {
     const base = Array(12).fill(0);
     if (Array.isArray(data)) {
@@ -120,7 +109,7 @@ export default function PageOne() {
         if (index < 12) base[index] = Number(val);
       });
     } else if (data) {
-      base[0] = Number(data); // If single value, put in first slot
+      base[0] = Number(data);
     }
     return base;
   };
@@ -132,13 +121,21 @@ export default function PageOne() {
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 5 }}>
+        {/* Header Section */}
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          justifyContent="space-between"
+          sx={{ mb: 5 }}
+        >
           <Box>
             <Typography variant="h3">Bills History</Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               Filter and manage your utility payments.
             </Typography>
           </Box>
+
           <ToggleButtonGroup value="NGN" exclusive size="small" color="primary">
             {['NGN', 'USD', 'GBP'].map((lib) => (
               <ToggleButton key={lib} value={lib} sx={{ fontWeight: 'bold', px: 2 }}>
@@ -149,7 +146,7 @@ export default function PageOne() {
         </Stack>
 
         <Grid container spacing={3}>
-          {/* Current Balance */}
+          {/* Top Row: Wallet & Quick Stats */}
           <Grid item xs={12} md={5}>
             {loading ? (
               <Skeleton variant="rectangular" height={240} sx={{ borderRadius: 2 }} />
@@ -158,22 +155,37 @@ export default function PageOne() {
             )}
           </Grid>
 
-          {/* Quick Actions & Widgets */}
           <Grid item xs={12} md={7}>
-            <Stack direction="row" spacing={1.5} sx={{ mb: 5, justifyContent: 'flex-end' }}>
-              <Button variant="contained" startIcon={<Iconify icon="solar:code-circle-bold" />}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1.5}
+              sx={{ mb: 3, justifyContent: { xs: 'center', md: 'flex-end' } }}
+            >
+              <Button
+                fullWidth={{ xs: true, sm: false } as any}
+                variant="contained"
+                startIcon={<Iconify icon="solar:code-circle-bold" />}
+              >
                 API
               </Button>
-              <Button variant="contained" startIcon={<Iconify icon="solar:add-circle-bold" />}>
+              <Button
+                fullWidth={{ xs: true, sm: false } as any}
+                variant="contained"
+                startIcon={<Iconify icon="solar:add-circle-bold" />}
+              >
                 Transfer
               </Button>
-              <Button variant="contained" startIcon={<Iconify icon="solar:add-circle-bold" />}>
+              <Button
+                fullWidth={{ xs: true, sm: false } as any}
+                variant="contained"
+                startIcon={<Iconify icon="solar:add-circle-bold" />}
+              >
                 Bills
               </Button>
             </Stack>
 
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
-              <Box sx={{ width: 1 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
                 {loading ? (
                   <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 2 }} />
                 ) : (
@@ -184,8 +196,8 @@ export default function PageOne() {
                     icon={<Iconify icon="solar:bill-list-bold-duotone" width={32} />}
                   />
                 )}
-              </Box>
-              <Box sx={{ width: 1 }}>
+              </Grid>
+              <Grid item xs={12} sm={6}>
                 {loading ? (
                   <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 2 }} />
                 ) : (
@@ -196,106 +208,95 @@ export default function PageOne() {
                     icon={<Iconify icon="solar:check-circle-bold-duotone" width={32} />}
                   />
                 )}
-              </Box>
-            </Stack>
+              </Grid>
+            </Grid>
           </Grid>
 
-          {/* Main Statistics & Tables */}
+          {/* Middle Row: Main Chart & Referral Sidebar */}
           <Grid item xs={12} md={8}>
-            <Stack spacing={3}>
-              {loading ? (
-                <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
-              ) : (
-                <BankingBalanceStatistics
-                  key={JSON.stringify(chartData?.inflow)} // Forces re-draw on data load
-                  title="Transaction Statistics"
-                  chart={{
-                    categories: [
-                      'Jan',
-                      'Feb',
-                      'Mar',
-                      'Apr',
-                      'May',
-                      'Jun',
-                      'Jul',
-                      'Aug',
-                      'Sep',
-                      'Oct',
-                      'Nov',
-                      'Dec',
-                    ],
-                    colors: [theme.palette.primary.main, theme.palette.warning.main],
-                    series: [
-                      {
-                        type: 'Year',
-                        data: [
-                          { name: 'Income', data: formatSeries(chartData?.inflow) },
-                          { name: 'Expenses', data: formatSeries(chartData?.outflow) },
-                        ],
-                      },
-                    ],
-                    options: {
-                      tooltip: { y: { formatter: (value: number) => fCurrency(value) } },
-                      yaxis: { labels: { formatter: (value: number) => fCurrency(value) } },
+            {loading ? (
+              <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
+            ) : (
+              <BankingBalanceStatistics
+                title="Transaction Statistics"
+                chart={{
+                  categories: [
+                    'Jan',
+                    'Feb',
+                    'Mar',
+                    'Apr',
+                    'May',
+                    'Jun',
+                    'Jul',
+                    'Aug',
+                    'Sep',
+                    'Oct',
+                    'Nov',
+                    'Dec',
+                  ],
+                  colors: [theme.palette.primary.main, theme.palette.warning.main],
+                  series: [
+                    {
+                      type: 'Year',
+                      data: [
+                        { name: 'Income', data: formatSeries(chartData?.inflow) },
+                        { name: 'Expenses', data: formatSeries(chartData?.outflow) },
+                      ],
                     },
-                  }}
-                />
-              )}
-
-              {loading ? (
-                <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 2 }} />
-              ) : (
-                <BankingExpensesCategories
-                  title="Bills Breakdown"
-                  chart={{
-                    series: [
-                      { label: 'Airtime', value: Number(chartData?.bills?.airtime || 0) },
-                      { label: 'Cable TV', value: Number(chartData?.bills?.cabletv || 0) },
-                      { label: 'Internet', value: Number(chartData?.bills?.internet || 0) },
-                      { label: 'Electricity', value: Number(chartData?.bills?.electricity || 0) },
-                    ],
-                  }}
-                />
-              )}
-
-              {loading ? (
-                <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
-              ) : (
-                <BankingRecentTransitions
-                  title="Recent Transactions"
-                  tableData={transactions}
-                  tableLabels={[
-                    { id: 'description', label: 'Description' },
-                    { id: 'created_at', label: 'Date' },
-                    { id: 'amount', label: 'Amount' },
-                    { id: 'status', label: 'Status' },
-                  ]}
-                />
-              )}
-            </Stack>
+                  ],
+                }}
+              />
+            )}
           </Grid>
 
-          {/* Sidebar Area */}
           <Grid item xs={12} md={4}>
-            <Stack spacing={3}>
-              {loading ? (
-                <>
-                  <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 2 }} />
-                  <Skeleton variant="rectangular" height={250} sx={{ borderRadius: 2 }} />
-                </>
-              ) : (
-                <>
-                  <BankingQuickTransfer title="Quick Transfer" list={[]} />
-                  <BankingContacts title="Contacts" list={[]} />
-                  <BankingInviteFriends
-                    price="50%"
-                    title="Refer & Earn"
-                    description="Invite friends to earn royalty on fees."
-                    img="/assets/illustrations/characters/character_11.png"
-                  />
-                </>
-              )}
-            </Stack>
+            {loading ? (
+              <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
+            ) : (
+              <BankingInviteFriends
+                price="50%"
+                title="Refer & Earn"
+                description="Invite friends to earn royalty on fees."
+                img="/assets/illustrations/characters/character_11.png"
+              />
+            )}
+          </Grid>
+
+          {/* Full Width Row: Bills Breakdown */}
+          <Grid item xs={12}>
+            {loading ? (
+              <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 2 }} />
+            ) : (
+              <BankingExpensesCategories
+                title="Bills Breakdown"
+                chart={{
+                  series: [
+                    { label: 'Airtime', value: Number(chartData?.airtime || 0) },
+                    { label: 'Cable TV', value: Number(chartData?.cabletv || 0) },
+                    { label: 'Internet', value: Number(chartData?.internet || 0) },
+                    { label: 'Electricity', value: Number(chartData?.electricity || 0) },
+                  ],
+                }}
+              />
+            )}
+          </Grid>
+
+          {/* Full Width Row: Recent Transactions */}
+          <Grid item xs={12}>
+            {loading ? (
+              <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
+            ) : (
+              <BankingRecentTransitions
+                title="Recent Transactions"
+                tableData={transactions}
+                tableLabels={[
+                  { id: 'description', label: 'Description' },
+                  { id: 'created_at', label: 'Date' },
+                  { id: 'amount', label: 'Amount' },
+                  { id: 'status', label: 'Status' },
+                ]}
+              />
+            )}
           </Grid>
         </Grid>
       </Container>
