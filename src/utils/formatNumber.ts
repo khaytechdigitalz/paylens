@@ -9,7 +9,13 @@ export function fNumber(number: InputValue) {
 }
 
 export function fCurrency(number: InputValue, currency?: string) {
-  const format = number ? numeral(number).format('$0,0.00') : '';
+  // Use 0 as a fallback if the input is null, undefined, or empty
+  const value = number ?? 0;
+
+  // '0,0' adds the thousand separator
+  // '.00' ensures it always shows two decimal places (e.g., 1,000.00)
+  // If you DON'T want decimals, use '0,0'
+  const format = numeral(value).format('0,0.00');
 
   return result(format, '.00');
 }

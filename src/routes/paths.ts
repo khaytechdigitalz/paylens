@@ -10,11 +10,19 @@ const ROOTS_DASHBOARD = '/dashboard';
 
 export const PATH_AUTH = {
   login: '/login',
+  api: '/api/documentation',
 };
 
 export const PATH_DASHBOARD = {
   root: ROOTS_DASHBOARD,
   dashboard: path(ROOTS_DASHBOARD, '/home'),
+
+  pos: {
+    root: path(ROOTS_DASHBOARD, '/pos'),
+    details: (details: string) => path(ROOTS_DASHBOARD, `/pos/${details}/details`),
+    transactions: path(ROOTS_DASHBOARD, '/pos/transactions'),
+  },
+
   transactions: {
     root: path(ROOTS_DASHBOARD, '/transactions'),
     history: path(ROOTS_DASHBOARD, '/transactions/history'),
@@ -33,8 +41,8 @@ export const PATH_DASHBOARD = {
     root: path(ROOTS_DASHBOARD, '/bills'), 
     history: path(ROOTS_DASHBOARD, '/bills/history'),
     airtime: path(ROOTS_DASHBOARD, '/bills/airtime'),
-    cabletv: path(ROOTS_DASHBOARD, '/bills/cabletv'),
     internet: path(ROOTS_DASHBOARD, '/bills/internet'),
+    cabletv: path(ROOTS_DASHBOARD, '/bills/cabletv'),
     electricity: path(ROOTS_DASHBOARD, '/bills/electricity'),
   },
 
@@ -53,6 +61,8 @@ export const PATH_DASHBOARD = {
   },
   apiconfig: path(ROOTS_DASHBOARD, '/api/config'),
   apiwebhook: path(ROOTS_DASHBOARD, '/api/webhooks'),
+
+  
 
   two: path(ROOTS_DASHBOARD, '/two'),
   three: path(ROOTS_DASHBOARD, '/three'),

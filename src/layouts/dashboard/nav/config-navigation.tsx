@@ -26,6 +26,7 @@ const navConfig = [
     subheader: 'general v4.1.0',
     items: [
       { title: 'Dashboard', path: PATH_DASHBOARD.dashboard, icon: ICONS.dashboard },
+      { title: 'POS', path: PATH_DASHBOARD.pos, icon: ICONS.dashboard },
       {
         title: 'Transactions',
         path: PATH_DASHBOARD.transactions.root,

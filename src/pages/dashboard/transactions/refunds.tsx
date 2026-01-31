@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import * as XLSX from 'xlsx';
+/* eslint-disable import/no-named-as-default */
+/* eslint-disable no-nested-ternary */
+/* eslint-disable react-hooks/exhaustive-deps */
+import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
-// next
 import { useRouter } from 'next/router';
 // @mui
 import { alpha } from '@mui/material/styles';
@@ -20,6 +21,7 @@ import {
   TableContainer,
   ToggleButton,
   ToggleButtonGroup,
+  Skeleton,
 } from '@mui/material';
 // layouts
 import DashboardLayout from '../../../layouts/dashboard';
@@ -30,61 +32,25 @@ import StatWidget from '../../../components/widgets/StatWidget';
 import { useSettingsContext } from '../../../components/settings';
 import {
   useTable,
-  getComparator,
   TableNoData,
   TableHeadCustom,
   TablePaginationCustom,
 } from '../../../components/table';
 // utils
+import axios from '../../../utils/axios';
 import { fDate } from '../../../utils/formatTime';
 // Internal Component
-import { TransactionTableToolbar } from './TransactionTableToolbar';
+import RefundTableToolbar from './RefundTableToolbar';
 
 // ----------------------------------------------------------------------
 
-interface RefundTransaction {
-  id: string;
-  originalId: string;
-  date: string;
-  amount: number;
-  status: 'completed' | 'pending' | 'rejected';
-  reason: string;
-}
-
 const TABLE_HEAD = [
-  { id: 'id', label: 'Refund ID', align: 'left' },
-  { id: 'originalId', label: 'Original ID', align: 'left' },
-  { id: 'date', label: 'Refund Date', align: 'left' },
-  { id: 'amount', label: 'Refund Amount', align: 'left' },
+  { id: 'refund_ref', label: 'Refund ID', align: 'left' },
+  { id: 'transaction_ref', label: 'Original ID', align: 'left' },
+  { id: 'created_at', label: 'Date', align: 'left' },
+  { id: 'amount', label: 'Amount', align: 'left' },
   { id: 'status', label: 'Status', align: 'left' },
   { id: '' },
-];
-
-const TABLE_DATA: RefundTransaction[] = [
-  {
-    id: 'RF-9901',
-    originalId: 'TX-1234',
-    date: '2026-01-15',
-    amount: 1250.0,
-    status: 'completed',
-    reason: 'Customer Request',
-  },
-  {
-    id: 'RF-9902',
-    originalId: 'TX-5678',
-    date: '2026-01-16',
-    amount: 45.0,
-    status: 'pending',
-    reason: 'Duplicate Payment',
-  },
-  {
-    id: 'RF-9903',
-    originalId: 'TX-9012',
-    date: '2026-01-17',
-    amount: 450.0,
-    status: 'rejected',
-    reason: 'Policy Violation',
-  },
 ];
 
 // ----------------------------------------------------------------------
@@ -99,51 +65,66 @@ export default function RefundHistoryPage() {
   const { page, order, orderBy, rowsPerPage, setPage, onSort, onChangePage, onChangeRowsPerPage } =
     useTable();
 
-  // Filters & State
+  // API State
+  const [tableData, setTableData] = useState([]);
+  const [summary, setSummary] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Filter States
+  const [currency, setCurrency] = useState('NGN');
   const [filterName, setFilterName] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
-  const [currency, setCurrency] = useState('USD');
 
+  // 1. Core Fetch Function
+  const getRefunds = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      const response = await axios.get('/refunds', {
+        params: {
+          currency,
+          search: filterName || undefined,
+          status: filterStatus === 'all' ? undefined : filterStatus,
+          start_date: filterStartDate || undefined,
+          end_date: filterEndDate || undefined,
+        },
+      });
+
+      setTableData(response.data.data.data || []);
+      setSummary(response.data.summary);
+    } catch (error) {
+      console.error('Filter Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [currency, filterName, filterStatus, filterStartDate, filterEndDate]);
+
+  // Initial load and currency switch reload
+  useEffect(() => {
+    getRefunds();
+  }, [currency]); // Only auto-reload on currency. Other filters wait for "Search" click.
+
+  // 2. Handlers
   const handleCurrencyChange = (_: React.MouseEvent<HTMLElement>, newCurrency: string | null) => {
-    if (newCurrency) setCurrency(newCurrency);
+    if (newCurrency) {
+      setPage(0);
+      setCurrency(newCurrency);
+    }
   };
 
-  const dataFiltered = applyFilter({
-    inputData: TABLE_DATA,
-    comparator: getComparator(order, orderBy),
-    filterName,
-    filterStartDate,
-    filterEndDate,
-  });
+  const handleFilterSubmit = () => {
+    setPage(0);
+    getRefunds();
+  };
 
-  const formatValue = (val: number) => {
+  const formatValue = (val: number | string) => {
+    const num = typeof val === 'string' ? parseFloat(val) : val;
     const symbols: Record<string, string> = { USD: '$', NGN: '₦', GBP: '£' };
-    return `${symbols[currency]}${val.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
-  };
-
-  // Stats logic
-  const totalRefunded = dataFiltered
-    .filter((item: { status: string; }) => item.status === 'completed')
-    .reduce((acc: any, curr: { amount: any; }) => acc + curr.amount, 0);
-
-  const pendingRefunds = dataFiltered.filter((item: { status: string; }) => item.status === 'pending').length;
-
-  const handleExport = () => {
-    const exportData = dataFiltered.map((row: { id: any; originalId: any; date: any; amount: any; status: any; reason: any; }) => ({
-      'Refund ID': row.id,
-      'Original Transaction ID': row.originalId,
-      Date: row.date,
-      Amount: row.amount,
-      Currency: currency,
-      Status: row.status,
-      Reason: row.reason,
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Refunds');
-    XLSX.writeFile(wb, `PayLens_Refunds_${new Date().toISOString().split('T')[0]}.xlsx`);
+    return `${symbols[currency] || '₦'}${num.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+    })}`;
   };
 
   return (
@@ -161,7 +142,6 @@ export default function RefundHistoryPage() {
           sx={{ mb: 5 }}
         >
           <Typography variant="h3">Refund History</Typography>
-
           <Stack direction="row" spacing={2} alignItems="center">
             <ToggleButtonGroup
               value={currency}
@@ -176,62 +156,70 @@ export default function RefundHistoryPage() {
                 </ToggleButton>
               ))}
             </ToggleButtonGroup>
-
-            <Button
-              variant="contained"
-              color="inherit"
-              startIcon={<Iconify icon="eva:download-outline" />}
-              onClick={handleExport}
-            >
-              Export Excel
-            </Button>
           </Stack>
         </Stack>
 
         <Grid container spacing={3} sx={{ mb: 5 }}>
-          <Grid item xs={12} md={4}>
-            <StatWidget
-              title="Total Refunded"
-              amount={formatValue(totalRefunded)}
-              variant="error"
-              icon={<Iconify icon="eva:undo-fill" width={32} />}
-            />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <StatWidget
-              title="Pending Refunds"
-              amount={pendingRefunds}
-              variant="warning"
-              icon={<Iconify icon="eva:clock-fill" width={32} />}
-            />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <StatWidget
-              title="Success Rate"
-              amount="94.2%"
-              variant="success"
-              icon={<Iconify icon="eva:checkmark-circle-2-fill" width={32} />}
-            />
-          </Grid>
+          {[
+            {
+              title: 'Total Volume',
+              val: summary?.total_refund_volume,
+              var: 'error',
+              icon: 'eva:undo-fill',
+            },
+            {
+              title: 'Pending',
+              val: summary?.pending_amount,
+              var: 'warning',
+              icon: 'eva:clock-fill',
+            },
+            {
+              title: 'Successful',
+              val: summary?.successful_amount,
+              var: 'success',
+              icon: 'eva:checkmark-circle-2-fill',
+            },
+            {
+              title: 'Count',
+              val: summary?.total_count,
+              var: 'info',
+              icon: 'eva:list-fill',
+              noFormat: true,
+            },
+          ].map((stat, i) => (
+            <Grid item xs={12} md={3} key={i}>
+              <StatWidget
+                title={stat.title}
+                amount={
+                  loading ? (
+                    <Skeleton width={80} />
+                  ) : stat.noFormat ? (
+                    stat.val
+                  ) : (
+                    formatValue(stat.val || 0)
+                  )
+                }
+                variant={stat.var as any}
+                icon={<Iconify icon={stat.icon} width={32} />}
+              />
+            </Grid>
+          ))}
         </Grid>
 
         <Card>
-          <TransactionTableToolbar
+          {/* Integrated RefundTableToolbar */}
+          <RefundTableToolbar
             filterName={filterName}
+            onFilterName={(e) => setFilterName(e.target.value)}
+            filterStatus={filterStatus}
+            onFilterStatus={(e) => setFilterStatus(e.target.value)}
             startDate={filterStartDate}
+            onChangeStartDate={(e) => setFilterStartDate(e.target.value)}
             endDate={filterEndDate}
-            onFilterName={(e) => {
-              setPage(0);
-              setFilterName(e.target.value);
-            }}
-            onChangeStartDate={(e) => {
-              setPage(0);
-              setFilterStartDate(e.target.value);
-            }}
-            onChangeEndDate={(e) => {
-              setPage(0);
-              setFilterEndDate(e.target.value);
-            }}
+            onChangeEndDate={(e) => setFilterEndDate(e.target.value)}
+            onSubmit={handleFilterSubmit}
+            filterType="" // Included for prop compliance
+            onFilterType={() => {}}
           />
 
           <TableContainer sx={{ position: 'relative', overflow: 'unset' }}>
@@ -244,59 +232,58 @@ export default function RefundHistoryPage() {
                   onSort={onSort}
                 />
                 <TableBody>
-                  {dataFiltered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(
-                    (
-                      row: RefundTransaction // Use the interface instead of inline types
-                    ) => (
-                      <TableRow hover key={row.id}>
-                        <TableCell sx={{ typography: 'subtitle2' }}>{row.id}</TableCell>
-
-                        <TableCell>
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              color: 'primary.main',
-                              cursor: 'pointer',
-                              textDecoration: 'underline',
-                              fontWeight: 'medium',
-                            }}
-                            onClick={() =>
-                              push(`/dashboard/transactions/${row.originalId}/details`)
-                            }
-                          >
-                            {row.originalId}
-                          </Typography>
-                        </TableCell>
-
-                        <TableCell>{fDate(row.date)}</TableCell>
-
-                        <TableCell>{formatValue(row.amount)}</TableCell>
-
-                        <TableCell>
-                          <RefundStatusLabel status={row.status} />
-                        </TableCell>
-
-                        <TableCell align="right">
-                          <IconButton
-                            onClick={() =>
-                              push(`/dashboard/transactions/${row.originalId}/refund`)
-                            }
-                            color="primary"
-                          >
-                            <Iconify icon="eva:arrow-forward-fill" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    )
+                  {loading ? (
+                    [...Array(rowsPerPage)].map((_, index) => <TableSkeleton key={index} />)
+                  ) : (
+                    <>
+                      {tableData
+                        .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                        .map((row: any) => (
+                          <TableRow hover key={row.id}>
+                            <TableCell sx={{ typography: 'subtitle2' }}>{row.refund_ref}</TableCell>
+                            <TableCell>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: 'primary.main',
+                                  cursor: 'pointer',
+                                  textDecoration: 'underline',
+                                }}
+                                onClick={() =>
+                                  push(`/dashboard/transactions/${row.transaction.id}/details`)
+                                }
+                              >
+                                {row.transaction_ref}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>{fDate(row.created_at)}</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>
+                              {formatValue(row.amount)}
+                            </TableCell>
+                            <TableCell>
+                              <RefundStatusLabel status={row.status} />
+                            </TableCell>
+                            <TableCell align="right">
+                              <IconButton
+                                onClick={() =>
+                                  push(`/dashboard/transactions/${row.refund_ref}/refund`)
+                                }
+                              >
+                                <Iconify icon="eva:chevron-right-fill" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      <TableNoData isNotFound={!tableData.length} />
+                    </>
                   )}
-                  <TableNoData isNotFound={!dataFiltered.length} />
                 </TableBody>
               </Table>
             </Scrollbar>
           </TableContainer>
 
           <TablePaginationCustom
-            count={dataFiltered.length}
+            count={tableData.length}
             page={page}
             rowsPerPage={rowsPerPage}
             onPageChange={onChangePage}
@@ -308,9 +295,35 @@ export default function RefundHistoryPage() {
   );
 }
 
-// ----------------------------------------------------------------------
+// TableSkeleton and RefundStatusLabel components stay same as previous...
+function TableSkeleton() {
+  return (
+    <TableRow>
+      <TableCell>
+        <Skeleton variant="text" width={100} height={20} />
+      </TableCell>
+      <TableCell>
+        <Skeleton variant="text" width={120} height={20} />
+      </TableCell>
+      <TableCell>
+        <Skeleton variant="text" width={80} height={20} />
+      </TableCell>
+      <TableCell>
+        <Skeleton variant="text" width={60} height={20} />
+      </TableCell>
+      <TableCell>
+        <Skeleton variant="rounded" width={70} height={24} />
+      </TableCell>
+      <TableCell align="right">
+        <Skeleton variant="circular" width={32} height={32} />
+      </TableCell>
+    </TableRow>
+  );
+}
 
 function RefundStatusLabel({ status }: { status: string }) {
+  const isPending = status === 'pending';
+  const isSuccess = status === 'success' || status === 'completed';
   return (
     <Typography
       variant="caption"
@@ -319,45 +332,25 @@ function RefundStatusLabel({ status }: { status: string }) {
         py: 0.5,
         borderRadius: 0.75,
         fontWeight: 'bold',
-        textTransform: 'capitalize',
-        color: (theme) => {
-          if (status === 'completed') return theme.palette.success.dark;
-          if (status === 'pending') return theme.palette.warning.dark;
-          return theme.palette.error.dark;
-        },
-        bgcolor: (theme) => {
-          if (status === 'completed') return alpha(theme.palette.success.main, 0.16);
-          if (status === 'pending') return alpha(theme.palette.warning.main, 0.16);
-          return alpha(theme.palette.error.main, 0.16);
-        },
+        textTransform: 'uppercase',
+        color: (theme) =>
+          isSuccess
+            ? theme.palette.success.dark
+            : isPending
+            ? theme.palette.warning.dark
+            : theme.palette.error.dark,
+        bgcolor: (theme) =>
+          alpha(
+            isSuccess
+              ? theme.palette.success.main
+              : isPending
+              ? theme.palette.warning.main
+              : theme.palette.error.main,
+            0.16
+          ),
       }}
     >
       {status}
     </Typography>
   );
-}
-
-function applyFilter({ inputData, comparator, filterName, filterStartDate, filterEndDate }: any) {
-  const stabilizedThis = inputData.map((el: any, index: number) => [el, index]);
-  stabilizedThis.sort((a: any, b: any) => {
-    const order = comparator(a[0], b[0]);
-    if (order !== 0) return order;
-    return a[1] - b[1];
-  });
-  inputData = stabilizedThis.map((el: any) => el[0]);
-  if (filterName) {
-    inputData = inputData.filter(
-      (item: any) =>
-        item.id.toLowerCase().includes(filterName.toLowerCase()) ||
-        item.originalId.toLowerCase().includes(filterName.toLowerCase())
-    );
-  }
-  if (filterStartDate && filterEndDate) {
-    inputData = inputData.filter(
-      (item: any) =>
-        new Date(item.date) >= new Date(filterStartDate) &&
-        new Date(item.date) <= new Date(filterEndDate)
-    );
-  }
-  return inputData;
 }

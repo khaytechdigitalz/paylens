@@ -1,12 +1,11 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable import/extensions */
+/* eslint-disable import/no-named-as-default */
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable prefer-const */
 /* eslint-disable no-nested-ternary */
-import { useState } from 'react';
-import * as XLSX from 'xlsx';
+import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
-// next
-import { useRouter } from 'next/router';
+import { useSnackbar } from 'notistack';
+import * as XLSX from 'xlsx';
 // @mui
 import {
   Grid,
@@ -26,7 +25,13 @@ import {
   Box,
   ToggleButton,
   ToggleButtonGroup,
+  Skeleton,
+  CircularProgress,
+  alpha,
+  useTheme,
 } from '@mui/material';
+// auth
+import { useAuthContext } from '../../../auth/useAuthContext';
 // layouts
 import DashboardLayout from '../../../layouts/dashboard';
 // components
@@ -36,71 +41,26 @@ import StatWidget from '../../../components/widgets/StatWidget';
 import { useSettingsContext } from '../../../components/settings';
 import {
   useTable,
-  getComparator,
   TableNoData,
   TableHeadCustom,
   TablePaginationCustom,
 } from '../../../components/table';
 // utils
+import axios from '../../../utils/axios';
 import { fDate } from '../../../utils/formatTime';
-// Internal Component
-import { TransactionTableToolbar } from './TransactionTableToolbar';
+import { fCurrency } from '../../../utils/formatNumber';
+import TransactionTableToolbar from './TransactionTableToolbar';
 
 // ----------------------------------------------------------------------
 
-interface Settlement {
-  id: string; // Batch ID
-  transactionId: string;
-  date: string;
-  grossAmount: number;
-  fee: number;
-  netSettled: number;
-  paymentType: string;
-  status: 'settled' | 'pending' | 'failed';
-}
-
 const TABLE_HEAD = [
-  { id: 'id', label: 'Batch ID', align: 'left' },
-  { id: 'transactionId', label: 'Transaction ID', align: 'left' },
-  { id: 'grossAmount', label: 'Gross Amount', align: 'left' },
-  { id: 'fee', label: 'Fee', align: 'left' },
-  { id: 'netSettled', label: 'Net Settled', align: 'left' },
-  { id: 'paymentType', label: 'Payment Type', align: 'left' },
+  { id: 'batch_id', label: 'Batch ID', align: 'left' },
+  { id: 'transaction_id', label: 'Transaction ID', align: 'left' },
+  { id: 'gross_amount', label: 'Gross', align: 'left' },
+  { id: 'fee', label: 'Fees', align: 'left' },
+  { id: 'settled', label: 'Net Settled', align: 'left' },
   { id: 'status', label: 'Status', align: 'left' },
-  { id: 'date', label: 'Date', align: 'right' },
-];
-
-const TABLE_DATA: Settlement[] = [
-  {
-    id: 'BAT-9001',
-    transactionId: 'TX-1234882',
-    date: '2026-01-10',
-    grossAmount: 50000.0,
-    fee: 750.0,
-    netSettled: 49250.0,
-    paymentType: 'Card',
-    status: 'settled',
-  },
-  {
-    id: 'BAT-9002',
-    transactionId: 'TX-5678119',
-    date: '2026-01-12',
-    grossAmount: 10000.0,
-    fee: 150.0,
-    netSettled: 9850.0,
-    paymentType: 'Transfer',
-    status: 'pending',
-  },
-  {
-    id: 'BAT-9003',
-    transactionId: 'TX-9012334',
-    date: '2026-01-15',
-    grossAmount: 2500.0,
-    fee: 37.5,
-    netSettled: 2462.5,
-    paymentType: 'USSD',
-    status: 'settled',
-  },
+  { id: 'created_at', label: 'Date', align: 'right' },
 ];
 
 // ----------------------------------------------------------------------
@@ -108,22 +68,65 @@ const TABLE_DATA: Settlement[] = [
 SettlementPage.getLayout = (page: React.ReactElement) => <DashboardLayout>{page}</DashboardLayout>;
 
 export default function SettlementPage() {
-  const { push } = useRouter();
+  const theme = useTheme();
+  const { user } = useAuthContext();
+  const { enqueueSnackbar } = useSnackbar();
   const { themeStretch } = useSettingsContext();
-  const { page, order, orderBy, rowsPerPage, setPage, onSort, onChangePage, onChangeRowsPerPage } =
+
+  const { page, order, orderBy, rowsPerPage, onSort, onChangePage, onChangeRowsPerPage } =
     useTable();
 
-  // States
+  const isTestMode = user?.mode === 'test';
+
+  // Data States
+  const [tableData, setTableData] = useState([]);
+  const [summary, setSummary] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Filter States
+  const [currency, setCurrency] = useState('NGN');
   const [filterName, setFilterName] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
-  const [currency, setCurrency] = useState('NGN');
-  const [openDrawer, setOpenDrawer] = useState(false);
-  const [selectedSettlement, setSelectedSettlement] = useState<Settlement | null>(null);
 
-  // Handlers
-  const handleCurrencyChange = (_: React.MouseEvent<HTMLElement>, newCurrency: string | null) => {
-    if (newCurrency) setCurrency(newCurrency);
+  // UI States
+  const [openDrawer, setOpenDrawer] = useState(false);
+  const [selectedSettlement, setSelectedSettlement] = useState<any>(null);
+
+  // --- API FETCH LOGIC ---
+  const getSettlements = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('/settlements', {
+        params: {
+          currency,
+          mode: user?.mode || 'live',
+          search: filterName || undefined,
+          start_date: filterStartDate || undefined,
+          end_date: filterEndDate || undefined,
+          page: page + 1, // API usually starts at 1
+        },
+      });
+      setTableData(response.data.data.data || []);
+      setSummary(response.data.summary);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('Failed to load settlements', { variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }, [currency, user?.mode, filterName, filterStartDate, filterEndDate, page, enqueueSnackbar]);
+
+  useEffect(() => {
+    getSettlements();
+  }, [currency, user?.mode, page]);
+
+  // --- HANDLERS ---
+  const handleResetFilter = () => {
+    setFilterName('');
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setTimeout(() => getSettlements(), 50);
   };
 
   const handleQuickDate = (range: 'today' | 'seven_days' | 'month') => {
@@ -131,49 +134,17 @@ export default function SettlementPage() {
     let start = new Date();
     if (range === 'seven_days') start.setDate(end.getDate() - 7);
     if (range === 'month') start.setMonth(end.getMonth() - 1);
+
     const formatDate = (date: Date) => date.toISOString().split('T')[0];
     setFilterStartDate(formatDate(start));
     setFilterEndDate(formatDate(end));
-    setPage(0);
-  };
-
-  const dataFiltered = applyFilter({
-    inputData: TABLE_DATA,
-    comparator: getComparator(order, orderBy),
-    filterName,
-    filterStartDate,
-    filterEndDate,
-  });
-
-  // Aggregates
-  const totalFees = dataFiltered.reduce((acc, curr) => acc + curr.fee, 0);
-  const totalNet = dataFiltered.reduce((acc, curr) => acc + curr.netSettled, 0);
-
-  const formatValue = (val: number) => {
-    const symbols: Record<string, string> = { USD: '$', NGN: '₦', GBP: '£' };
-    return `${symbols[currency]}${val.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
   };
 
   const handleExport = () => {
-    const exportData = dataFiltered.map((row) => ({
-      'Batch ID': row.id,
-      'Transaction ID': row.transactionId,
-      'Gross Amount': row.grossAmount,
-      Fee: row.fee,
-      'Net Settled': row.netSettled,
-      'Payment Type': row.paymentType,
-      Status: row.status,
-      Date: row.date,
-      Currency: currency,
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(exportData);
+    const ws = XLSX.utils.json_to_sheet(tableData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Settlements');
-    XLSX.writeFile(
-      wb,
-      `Settlement_Report_${currency}_${new Date().toISOString().split('T')[0]}.xlsx`
-    );
+    XLSX.writeFile(wb, `Settlements_${currency}_${user?.mode}.xlsx`);
   };
 
   return (
@@ -193,7 +164,14 @@ export default function SettlementPage() {
           <Box>
             <Typography variant="h3">Settlement History</Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              View and reconcile funds paid out to your wallet.
+              Environment:{' '}
+              <strong
+                style={{
+                  color: isTestMode ? theme.palette.warning.main : theme.palette.success.main,
+                }}
+              >
+                {isTestMode ? 'TEST' : 'LIVE'}
+              </strong>
             </Typography>
           </Box>
 
@@ -201,13 +179,13 @@ export default function SettlementPage() {
             <ToggleButtonGroup
               value={currency}
               exclusive
-              onChange={handleCurrencyChange}
+              onChange={(e, val) => val && setCurrency(val)}
               size="small"
               color="primary"
             >
-              {['NGN', 'USD', 'GBP'].map((lib) => (
-                <ToggleButton key={lib} value={lib} sx={{ fontWeight: 'bold', px: 2 }}>
-                  {lib}
+              {['NGN', 'USD', 'GBP'].map((curr) => (
+                <ToggleButton key={curr} value={curr} sx={{ fontWeight: 'bold', px: 2 }}>
+                  {curr}
                 </ToggleButton>
               ))}
             </ToggleButtonGroup>
@@ -219,7 +197,7 @@ export default function SettlementPage() {
               onClick={handleExport}
               sx={{ bgcolor: 'text.primary', color: 'background.paper' }}
             >
-              Export Excel
+              Export
             </Button>
           </Stack>
         </Stack>
@@ -243,52 +221,71 @@ export default function SettlementPage() {
         </Stack>
 
         <Grid container spacing={3} sx={{ mb: 5 }}>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={3}>
             <StatWidget
-              title="Total Net Settled"
-              amount={formatValue(totalNet)}
-              variant="primary"
-              icon={<Iconify icon="solar:wallet-money-bold-duotone" width={32} />}
+              title="Total Settled"
+              amount={loading ? <Skeleton /> : summary?.total_settled || 0}
+              icon={<Iconify icon="eva:checkmark-circle-2-fill" width={32} />}
+              variant="success"
             />
           </Grid>
-          <Grid item xs={12} md={4}>
-            <StatWidget
-              title="Total Fees"
-              amount={formatValue(totalFees)}
-              variant="warning"
-              icon={<Iconify icon="solar:ticket-sale-bold-duotone" width={32} />}
-            />
-          </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={3}>
             <StatWidget
               title="Settlement Volume"
-              amount={dataFiltered.length}
+              amount={loading ? <Skeleton /> : summary?.settlement_volume || 0}
+              icon={<Iconify icon="eva:diagonal-arrow-right-up-fill" width={32} />}
+              variant="primary"
+            />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <StatWidget
+              title="Total Fees"
+              amount={loading ? <Skeleton /> : summary?.total_fee || 0}
+              icon={<Iconify icon="eva:scissors-fill" width={32} />}
+              variant="error"
+            />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <StatWidget
+              title="Transaction Count"
+              amount={loading ? <Skeleton /> : summary?.transaction_count || 0}
+              icon={<Iconify icon="eva:layers-fill" width={32} />}
               variant="info"
-              icon={<Iconify icon="solar:reorder-bold-duotone" width={32} />}
             />
           </Grid>
         </Grid>
 
-        <Card>
+        <Card sx={{ border: isTestMode ? `1px dashed ${theme.palette.warning.main}` : 'none' }}>
           <TransactionTableToolbar
             filterName={filterName}
             startDate={filterStartDate}
             endDate={filterEndDate}
-            onFilterName={(e) => {
-              setPage(0);
-              setFilterName(e.target.value);
-            }}
-            onChangeStartDate={(e) => {
-              setPage(0);
-              setFilterStartDate(e.target.value);
-            }}
-            onChangeEndDate={(e) => {
-              setPage(0);
-              setFilterEndDate(e.target.value);
-            }}
+            onFilterName={(e) => setFilterName(e.target.value)}
+            onChangeStartDate={(e) => setFilterStartDate(e.target.value)}
+            onChangeEndDate={(e) => setFilterEndDate(e.target.value)}
+            onApplyFilter={getSettlements}
+            onResetFilter={handleResetFilter}
           />
 
           <TableContainer sx={{ position: 'relative', overflow: 'unset' }}>
+            {loading && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  bgcolor: alpha(theme.palette.background.paper, 0.7),
+                  zIndex: 9,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <CircularProgress color={isTestMode ? 'warning' : 'primary'} />
+              </Box>
+            )}
             <Scrollbar>
               <Table sx={{ minWidth: 1000 }}>
                 <TableHeadCustom
@@ -298,62 +295,61 @@ export default function SettlementPage() {
                   onSort={onSort}
                 />
                 <TableBody>
-                  {dataFiltered
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((row) => (
-                      <TableRow
-                        hover
-                        key={row.id}
-                        onClick={() => {
-                          setSelectedSettlement(row);
-                          setOpenDrawer(true);
-                        }}
-                        sx={{ cursor: 'pointer' }}
-                      >
-                        <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                          {row.id}
-                        </TableCell>
-                        <TableCell sx={{ typography: 'caption', color: 'text.secondary' }}>
-                          {row.transactionId}
-                        </TableCell>
-                        <TableCell>{formatValue(row.grossAmount)}</TableCell>
-                        <TableCell sx={{ color: 'error.main' }}>-{formatValue(row.fee)}</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold', color: 'success.main' }}>
-                          {formatValue(row.netSettled)}
-                        </TableCell>
-                        <TableCell>{row.paymentType}</TableCell>
-                        <TableCell>
-                          <Box
-                            sx={{
-                              px: 1,
-                              py: 0.5,
-                              borderRadius: 0.75,
-                              typography: 'caption',
-                              fontWeight: 'bold',
-                              textTransform: 'capitalize',
-                              bgcolor: (theme) =>
-                                row.status === 'settled'
-                                  ? theme.palette.success.lighter
-                                  : theme.palette.warning.lighter,
-                              color: (theme) =>
-                                row.status === 'settled'
-                                  ? theme.palette.success.darker
-                                  : theme.palette.warning.darker,
-                            }}
-                          >
-                            {row.status}
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right">{fDate(row.date)}</TableCell>
-                      </TableRow>
-                    ))}
-                  <TableNoData isNotFound={!dataFiltered.length} />
+                  {tableData.map((row: any) => (
+                    <TableRow
+                      hover
+                      key={row.id}
+                      onClick={() => {
+                        setSelectedSettlement(row);
+                        setOpenDrawer(true);
+                      }}
+                      sx={{ cursor: 'pointer' }}
+                    >
+                      <TableCell sx={{ fontWeight: 'bold' }}>{row.batch_id}</TableCell>
+                      <TableCell sx={{ typography: 'caption', color: 'text.secondary' }}>
+                        {row.transaction_id}
+                      </TableCell>
+                      <TableCell>{fCurrency(row.gross_amount || 0, currency)}</TableCell>
+                      <TableCell sx={{ color: 'error.main' }}>
+                        -{fCurrency(row.fee || 0, currency)}
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                        {fCurrency(row.settled || 0, currency)}
+                      </TableCell>
+                      <TableCell>
+                        <Box
+                          sx={{
+                            px: 1,
+                            py: 0.5,
+                            borderRadius: 0.75,
+                            typography: 'caption',
+                            fontWeight: 'bold',
+                            textTransform: 'capitalize',
+                            textAlign: 'center',
+                            width: 80,
+                            bgcolor:
+                              row.status === 'success'
+                                ? alpha(theme.palette.success.main, 0.16)
+                                : alpha(theme.palette.warning.main, 0.16),
+                            color:
+                              row.status === 'success'
+                                ? theme.palette.success.dark
+                                : theme.palette.warning.dark,
+                          }}
+                        >
+                          {row.status}
+                        </Box>
+                      </TableCell>
+                      <TableCell align="right">{fDate(row.created_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                  <TableNoData isNotFound={!tableData.length && !loading} />
                 </TableBody>
               </Table>
             </Scrollbar>
           </TableContainer>
           <TablePaginationCustom
-            count={dataFiltered.length}
+            count={summary?.total_count || tableData.length}
             page={page}
             rowsPerPage={rowsPerPage}
             onPageChange={onChangePage}
@@ -362,7 +358,7 @@ export default function SettlementPage() {
         </Card>
       </Container>
 
-      {/* Detail Drawer */}
+      {/* Settlement Detail Drawer */}
       <Drawer
         anchor="right"
         open={openDrawer}
@@ -382,27 +378,32 @@ export default function SettlementPage() {
                 <Iconify icon="eva:close-fill" />
               </IconButton>
             </Stack>
+
             <Stack spacing={3}>
               <Box
                 sx={{ p: 2, bgcolor: 'background.neutral', borderRadius: 2, textAlign: 'center' }}
               >
                 <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-                  Net Settled
+                  Net Payout
                 </Typography>
                 <Typography variant="h3" sx={{ color: 'success.main' }}>
-                  {formatValue(selectedSettlement.netSettled)}
+                  {fCurrency(selectedSettlement.settled, currency)}
                 </Typography>
               </Box>
+
               <Stack spacing={2}>
-                <DetailRow label="Batch ID" value={selectedSettlement.id} />
-                <DetailRow label="Transaction ID" value={selectedSettlement.transactionId} />
+                <DetailRow label="Batch ID" value={selectedSettlement.batch_id} />
+                <DetailRow label="Transaction ID" value={selectedSettlement.transaction_id} />
                 <DetailRow
                   label="Gross Amount"
-                  value={formatValue(selectedSettlement.grossAmount)}
+                  value={fCurrency(selectedSettlement.gross_amount, currency)}
                 />
-                <DetailRow label="Total Fees" value={`-${formatValue(selectedSettlement.fee)}`} />
+                <DetailRow
+                  label="Fee Deducted"
+                  value={`-${fCurrency(selectedSettlement.fee, currency)}`}
+                />
                 <Divider sx={{ borderStyle: 'dashed' }} />
-                <DetailRow label="Channel" value={selectedSettlement.paymentType} />
+                <DetailRow label="Processed Date" value={fDate(selectedSettlement.created_at)} />
                 <DetailRow label="Status" value={selectedSettlement.status} isStatus />
               </Stack>
             </Stack>
@@ -413,6 +414,7 @@ export default function SettlementPage() {
   );
 }
 
+// Internal Helpers
 function DetailRow({
   label,
   value,
@@ -432,41 +434,4 @@ function DetailRow({
       </Typography>
     </Stack>
   );
-}
-
-function applyFilter({
-  inputData,
-  comparator,
-  filterName,
-  filterStartDate,
-  filterEndDate,
-}: {
-  inputData: Settlement[];
-  comparator: (a: any, b: any) => number;
-  filterName: string;
-  filterStartDate: string;
-  filterEndDate: string;
-}) {
-  const stabilizedThis = inputData.map((el, index) => [el, index] as const);
-  stabilizedThis.sort((a, b) => {
-    const order = comparator(a[0], b[0]);
-    if (order !== 0) return order;
-    return a[1] - b[1];
-  });
-  inputData = stabilizedThis.map((el) => el[0]);
-  if (filterName) {
-    inputData = inputData.filter(
-      (item) =>
-        item.id.toLowerCase().includes(filterName.toLowerCase()) ||
-        item.transactionId.toLowerCase().includes(filterName.toLowerCase())
-    );
-  }
-  if (filterStartDate && filterEndDate) {
-    inputData = inputData.filter(
-      (item) =>
-        new Date(item.date) >= new Date(filterStartDate) &&
-        new Date(item.date) <= new Date(filterEndDate)
-    );
-  }
-  return inputData;
 }

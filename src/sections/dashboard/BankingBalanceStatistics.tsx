@@ -87,7 +87,7 @@ export default function BankingBalanceStatistics({ title, subheader, chart, ...o
         <Box key={item.type} sx={{ mt: 3, mx: 3 }} dir="ltr">
           {item.type === seriesData && (
             /* 4. Changed type from "bar" to "line" */
-            <Chart type="line" series={item.data} options={chartOptions} height={364} />
+            <Chart type="bar" series={item.data} options={chartOptions} height={364} />
           )}
         </Box>
       ))}

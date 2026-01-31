@@ -15,10 +15,9 @@ type Props = {
   onSubmit: VoidFunction;
 };
 
-const STATUS_OPTIONS = ['all', 'pending', 'success', 'reversed'];
-const TYPE_OPTIONS = ['all', 'debit', 'credit'];
+const STATUS_OPTIONS = ['all', 'pending', 'success', 'declined'];
 
-export function TransactionTableToolbar({
+export function RefundTableToolbar({
   filterName,
   onFilterName,
   filterStatus,
@@ -42,21 +41,7 @@ export function TransactionTableToolbar({
     <Stack spacing={2.5} sx={{ px: 2.5, py: 3 }}>
       {/* Top Row: Type, Status, and Search Reference */}
       <Stack spacing={2} direction={{ xs: 'column', md: 'row' }} alignItems={{ md: 'center' }}>
-        <TextField
-          fullWidth
-          select
-          label="Type"
-          value={filterType || 'all'}
-          onChange={onFilterType}
-          sx={{ maxWidth: { md: 160 } }}
-        >
-          {TYPE_OPTIONS.map((option) => (
-            <MenuItem key={option} value={option} sx={{ textTransform: 'capitalize' }}>
-              {option}
-            </MenuItem>
-          ))}
-        </TextField>
-
+         
         <TextField
           fullWidth
           select
@@ -130,4 +115,4 @@ export function TransactionTableToolbar({
   );
 }
 
-export default TransactionTableToolbar;
+export default RefundTableToolbar;

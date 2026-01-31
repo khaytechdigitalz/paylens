@@ -1,23 +1,31 @@
-// next
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
+// @mui
 import { useTheme } from '@mui/material/styles';
-import { Grid, Container, Button, Stack } from '@mui/material';
+import {
+  Grid,
+  Typography,
+  Container,
+  Button,
+  Stack,
+  Skeleton,
+  Box,
+  ToggleButtonGroup,
+  ToggleButton,
+} from '@mui/material';
 
+// utils
+import axios from '../../utils/axios';
+import { fCurrency } from '../../utils/formatNumber';
 // layouts
 import DashboardLayout from '../../layouts/dashboard';
 // components
 import { useSettingsContext } from '../../components/settings';
 import Iconify from '../../components/iconify';
-// _mock_
-import {
-  _bankingContacts,
-  _bankingCreditCard,
-  _bankingRecentTransitions,
-} from '../../_mock/arrays';
-
+// sections
 import {
   BankingContacts,
-  BankingWidgetSummary,
   BankingInviteFriends,
   BankingQuickTransfer,
   BankingCurrentBalance,
@@ -25,7 +33,33 @@ import {
   BankingRecentTransitions,
   BankingExpensesCategories,
 } from '../../sections/dashboard';
+import StatWidget from '../../components/widgets/StatWidget';
+
 // ----------------------------------------------------------------------
+
+// 1. TYPES
+export type RowProps = {
+  id: number;
+  reference: string;
+  amount: string | number;
+  type: string;
+  category: string;
+  status: string;
+  created_at: string;
+  description: string;
+  currency?: string;
+};
+
+interface Wallet {
+  id: string;
+  currency: string;
+  balance: number;
+}
+
+interface Stats {
+  totaloutflow: string | number;
+  totalinflow: string | number;
+}
 
 PageOne.getLayout = (page: React.ReactElement) => <DashboardLayout>{page}</DashboardLayout>;
 
@@ -35,6 +69,62 @@ export default function PageOne() {
   const { themeStretch } = useSettingsContext();
   const theme = useTheme();
 
+  // States
+  const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [stats, setStats] = useState<Stats>({ totalinflow: 0, totaloutflow: 0 });
+  const [chartData, setChartData] = useState<any>(null);
+  const [transactions, setTransactions] = useState<RowProps[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // 2. DATA FETCHING & MAPPING
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        const res = await axios.get('/dashboard');
+
+        if (res.data?.data) {
+          const d = res.data.data;
+
+          setWallets(d.wallets || []);
+          setStats(d.overall_stats || { totalinflow: 0, totaloutflow: 0 });
+          setTransactions(d.recent_transactions || []);
+
+          // Map Chart Data: Ensure we extract the raw numbers
+          setChartData({
+            inflow: d.chart?.inflow || [],
+            outflow: d.chart?.outflow || [],
+            bills: d.chart?.bills?.breakdown || {
+              airtime: 0,
+              cabletv: 0,
+              internet: 0,
+              electricity: 0,
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  // 3. CHART HELPER: Ensures 12 slots for Jan-Dec
+  const formatSeries = (data: any) => {
+    const base = Array(12).fill(0);
+    if (Array.isArray(data)) {
+      data.forEach((val, index) => {
+        if (index < 12) base[index] = Number(val);
+      });
+    } else if (data) {
+      base[0] = Number(data); // If single value, put in first slot
+    }
+    return base;
+  };
+
   return (
     <>
       <Head>
@@ -42,168 +132,169 @@ export default function PageOne() {
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 5 }}>
+          <Box>
+            <Typography variant="h3">Bills History</Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Filter and manage your utility payments.
+            </Typography>
+          </Box>
+          <ToggleButtonGroup value="NGN" exclusive size="small" color="primary">
+            {['NGN', 'USD', 'GBP'].map((lib) => (
+              <ToggleButton key={lib} value={lib} sx={{ fontWeight: 'bold', px: 2 }}>
+                {lib}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        </Stack>
+
         <Grid container spacing={3}>
+          {/* Current Balance */}
           <Grid item xs={12} md={5}>
-            <BankingCurrentBalance list={_bankingCreditCard} />
+            {loading ? (
+              <Skeleton variant="rectangular" height={240} sx={{ borderRadius: 2 }} />
+            ) : (
+              <BankingCurrentBalance list={wallets as any[]} />
+            )}
           </Grid>
+
+          {/* Quick Actions & Widgets */}
           <Grid item xs={12} md={7}>
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              justifyContent="space-between"
-              alignItems={{ xs: 'flex-start', sm: 'center' }}
-              sx={{ mb: 5 }} // This margin-bottom pushes the widgets down
-            >
-              {/* Left Side: Balance Info */}
-             
-
-              {/* Right Side: Action Buttons */}
-              <Stack direction="row" spacing={1.5} sx={{ mt: { xs: 2, sm: 0 } }}>
-                <Button
-                  variant="contained"
-                  color="inherit"
-                  startIcon={<Iconify icon="eva:arrow-upward-fill" />}
-                  sx={{
-                    bgcolor: 'grey.200',
-                    color: 'text.primary',
-                    '&:hover': { bgcolor: 'grey.300' },
-                  }}
-                >
-                  Send
-                </Button>
-
-                <Button
-                  variant="contained"
-                  color="inherit"
-                  startIcon={<Iconify icon="eva:plus-fill" />}
-                  sx={{
-                    bgcolor: 'grey.200',
-                    color: 'text.primary',
-                    '&:hover': { bgcolor: 'grey.300' },
-                  }}
-                >
-                  Add card
-                </Button>
-
-                <Button
-                  variant="contained"
-                  color="inherit"
-                  startIcon={<Iconify icon="eva:arrow-downward-fill" />}
-                  sx={{
-                    bgcolor: 'grey.200',
-                    color: 'text.primary',
-                    '&:hover': { bgcolor: 'grey.300' },
-                  }}
-                >
-                  Request
-                </Button>
-              </Stack>
+            <Stack direction="row" spacing={1.5} sx={{ mb: 5, justifyContent: 'flex-end' }}>
+              <Button variant="contained" startIcon={<Iconify icon="solar:code-circle-bold" />}>
+                API
+              </Button>
+              <Button variant="contained" startIcon={<Iconify icon="solar:add-circle-bold" />}>
+                Transfer
+              </Button>
+              <Button variant="contained" startIcon={<Iconify icon="solar:add-circle-bold" />}>
+                Bills
+              </Button>
             </Stack>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
-              <BankingWidgetSummary
-                title="Income"
-                icon="eva:diagonal-arrow-left-down-fill"
-                percent={2.6}
-                total={18765}
-                chart={{
-                  series: [111, 136, 76, 108, 74, 54, 57, 84],
-                }}
-              />
 
-              <BankingWidgetSummary
-                title="Expenses"
-                color="warning"
-                icon="eva:diagonal-arrow-right-up-fill"
-                percent={-0.5}
-                total={8938}
-                chart={{
-                  series: [111, 136, 76, 108, 74, 54, 57, 84],
-                }}
-              />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
+              <Box sx={{ width: 1 }}>
+                {loading ? (
+                  <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 2 }} />
+                ) : (
+                  <StatWidget
+                    title="Total Inflow"
+                    amount={fCurrency(stats.totalinflow, 'NGN')}
+                    variant="primary"
+                    icon={<Iconify icon="solar:bill-list-bold-duotone" width={32} />}
+                  />
+                )}
+              </Box>
+              <Box sx={{ width: 1 }}>
+                {loading ? (
+                  <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 2 }} />
+                ) : (
+                  <StatWidget
+                    title="Total Outflow"
+                    amount={fCurrency(stats.totaloutflow, 'NGN')}
+                    variant="error"
+                    icon={<Iconify icon="solar:check-circle-bold-duotone" width={32} />}
+                  />
+                )}
+              </Box>
             </Stack>
           </Grid>
 
+          {/* Main Statistics & Tables */}
           <Grid item xs={12} md={8}>
             <Stack spacing={3}>
-              <BankingBalanceStatistics
-                title="Transaction Statistics"
-                subheader="(+43% Income | +12% Expense) than last year"
-                chart={{
-                  categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
-                  colors: [theme.palette.primary.main, theme.palette.warning.main],
-                  series: [
-                    {
-                      type: 'Week',
-                      data: [
-                        { name: 'Income', data: [10, 41, 35, 151, 49, 62, 69, 91, 48] },
-                        { name: 'Expenses', data: [10, 34, 13, 56, 77, 88, 99, 77, 45] },
-                      ],
+              {loading ? (
+                <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
+              ) : (
+                <BankingBalanceStatistics
+                  key={JSON.stringify(chartData?.inflow)} // Forces re-draw on data load
+                  title="Transaction Statistics"
+                  chart={{
+                    categories: [
+                      'Jan',
+                      'Feb',
+                      'Mar',
+                      'Apr',
+                      'May',
+                      'Jun',
+                      'Jul',
+                      'Aug',
+                      'Sep',
+                      'Oct',
+                      'Nov',
+                      'Dec',
+                    ],
+                    colors: [theme.palette.primary.main, theme.palette.warning.main],
+                    series: [
+                      {
+                        type: 'Year',
+                        data: [
+                          { name: 'Income', data: formatSeries(chartData?.inflow) },
+                          { name: 'Expenses', data: formatSeries(chartData?.outflow) },
+                        ],
+                      },
+                    ],
+                    options: {
+                      tooltip: { y: { formatter: (value: number) => fCurrency(value) } },
+                      yaxis: { labels: { formatter: (value: number) => fCurrency(value) } },
                     },
-                    {
-                      type: 'Month',
-                      data: [
-                        { name: 'Income', data: [148, 91, 69, 62, 49, 51, 35, 41, 10] },
-                        { name: 'Expenses', data: [45, 77, 99, 88, 77, 56, 13, 34, 10] },
-                      ],
-                    },
-                    {
-                      type: 'Year',
-                      data: [
-                        { name: 'Income', data: [76, 42, 29, 41, 27, 138, 117, 86, 63] },
-                        { name: 'Expenses', data: [80, 55, 34, 114, 80, 130, 15, 28, 55] },
-                      ],
-                    },
-                  ],
-                }}
-              />
+                  }}
+                />
+              )}
 
-              <BankingExpensesCategories
-                title="Bills Payment"
-                chart={{
-                  series: [
-                    { label: 'Airtime', value: 14 },
-                    { label: 'Cable TV', value: 23 },
-                    { label: 'Internet Subscription', value: 21 },
-                    { label: 'Electricity', value: 17 }, 
-                  ],
-                  colors: [
-                    theme.palette.primary.main,
-                    theme.palette.warning.dark,
-                    theme.palette.success.darker,
-                    theme.palette.error.main, 
-                  ],
-                }}
-              />
+              {loading ? (
+                <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 2 }} />
+              ) : (
+                <BankingExpensesCategories
+                  title="Bills Breakdown"
+                  chart={{
+                    series: [
+                      { label: 'Airtime', value: Number(chartData?.bills?.airtime || 0) },
+                      { label: 'Cable TV', value: Number(chartData?.bills?.cabletv || 0) },
+                      { label: 'Internet', value: Number(chartData?.bills?.internet || 0) },
+                      { label: 'Electricity', value: Number(chartData?.bills?.electricity || 0) },
+                    ],
+                  }}
+                />
+              )}
 
-              <BankingRecentTransitions
-                title="Recent Transitions"
-                tableData={_bankingRecentTransitions}
-                tableLabels={[
-                  { id: 'description', label: 'Description' },
-                  { id: 'date', label: 'Date' },
-                  { id: 'amount', label: 'Amount' },
-                  { id: 'status', label: 'Status' },
-                  { id: '' },
-                ]}
-              />
+              {loading ? (
+                <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
+              ) : (
+                <BankingRecentTransitions
+                  title="Recent Transactions"
+                  tableData={transactions}
+                  tableLabels={[
+                    { id: 'description', label: 'Description' },
+                    { id: 'created_at', label: 'Date' },
+                    { id: 'amount', label: 'Amount' },
+                    { id: 'status', label: 'Status' },
+                  ]}
+                />
+              )}
             </Stack>
           </Grid>
 
+          {/* Sidebar Area */}
           <Grid item xs={12} md={4}>
             <Stack spacing={3}>
-              <BankingQuickTransfer title="Quick Transfer" list={_bankingContacts} />
-
-              <BankingContacts
-                title="Contacts"
-                subheader="You have 122 contacts"
-                list={_bankingContacts.slice(-5)}
-              />
-
-              <BankingInviteFriends
-                price="$50"
-                title={`Invite friends \n and earn`}
-                description="Praesent egestas tristique nibh. Duis lobortis massa imperdiet quam."
-                img="/assets/illustrations/characters/character_11.png"
-              />
+              {loading ? (
+                <>
+                  <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 2 }} />
+                  <Skeleton variant="rectangular" height={250} sx={{ borderRadius: 2 }} />
+                </>
+              ) : (
+                <>
+                  <BankingQuickTransfer title="Quick Transfer" list={[]} />
+                  <BankingContacts title="Contacts" list={[]} />
+                  <BankingInviteFriends
+                    price="50%"
+                    title="Refer & Earn"
+                    description="Invite friends to earn royalty on fees."
+                    img="/assets/illustrations/characters/character_11.png"
+                  />
+                </>
+              )}
             </Stack>
           </Grid>
         </Grid>

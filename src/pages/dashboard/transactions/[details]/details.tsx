@@ -1,6 +1,8 @@
-import { useState } from 'react';
-// next
+/* eslint-disable @typescript-eslint/no-shadow */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 // @mui
 import {
   Container,
@@ -11,331 +13,422 @@ import {
   Button,
   Divider,
   Box,
-  Avatar,
   alpha,
   Table,
   TableRow,
   TableBody,
   TableCell,
   TableContainer,
-  TextField,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogContentText,
   DialogActions,
+  Paper,
+  IconButton,
+  useTheme,
+  TextField,
 } from '@mui/material';
-import {
-  Timeline,
-  TimelineItem,
-  TimelineSeparator,
-  TimelineConnector,
-  TimelineContent,
-  TimelineDot,
-} from '@mui/lab';
+import { LoadingButton } from '@mui/lab';
 // layouts
 import DashboardLayout from '../../../../layouts/dashboard';
 // components
 import Iconify from '../../../../components/iconify';
 import { useSettingsContext } from '../../../../components/settings';
+import LoadingScreen from '../../../../components/loading-screen';
+import EmptyContent from '../../../../components/empty-content';
+import { useSnackbar } from '../../../../components/snackbar';
 // utils
+import axios from '../../../../utils/axios';
 import { fCurrency } from '../../../../utils/formatNumber';
 import { fDateTime } from '../../../../utils/formatTime';
 
 // ----------------------------------------------------------------------
 
-PageFour.getLayout = (page: React.ReactElement) => <DashboardLayout>{page}</DashboardLayout>;
+TransactionDetailsPage.getLayout = (page: React.ReactElement) => (
+  <DashboardLayout>{page}</DashboardLayout>
+);
 
-// ----------------------------------------------------------------------
-
-export default function PageFour() {
+export default function TransactionDetailsPage() {
+  const theme = useTheme();
   const { themeStretch } = useSettingsContext();
+  const { query, isReady, push } = useRouter();
+  const { enqueueSnackbar } = useSnackbar();
 
-  // Modal States
+  const { details } = query;
+  const [transactionData, setTransactionData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  // Modal & Submission States
   const [openRefund, setOpenRefund] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [isSubmittingRefund, setIsSubmittingRefund] = useState(false);
   const [openWebhook, setOpenWebhook] = useState(false);
 
-  // Mock data for the specific transaction
-  const currentTransaction = {
-    id: 'TX-12345678',
-    status: 'completed', // Can be 'completed', 'pending', or 'failed'
-    amount: 1250.0,
-    fee: 12.5,
-    tax: 5.0,
-    net: 1232.5,
-    currency: 'USD',
-    date: '2026-01-17T10:00:00',
-    method: 'Visa **** 4242',
-    customer: {
-      name: 'John Doe',
-      email: 'john.doe@example.com',
-      avatar: '',
-      ip: '192.168.1.1',
-      location: 'New York, USA',
-    },
-    history: [
-      { title: 'Transaction Completed', time: '2026-01-17T10:05:00', color: 'success' },
-      { title: 'Payment Authorized', time: '2026-01-17T10:01:00', color: 'info' },
-      { title: 'Transaction Initiated', time: '2026-01-17T10:00:00', color: 'primary' },
-    ],
+  const getTransaction = useCallback(async () => {
+    if (!details) return;
+    try {
+      setLoading(true);
+      setError(false);
+      const response = await axios.get(`/transaction/${details}`);
+      setTransactionData(response.data.data);
+    } catch (err) {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [details]);
+
+  useEffect(() => {
+    if (isReady) getTransaction();
+  }, [isReady, getTransaction]);
+
+  // Handle Refund API Call
+  const handleRefundSubmit = async () => {
+    try {
+      setIsSubmittingRefund(true);
+      // Adjusting endpoint based on your pattern /transaction/{id}/refund
+      await axios.post(`/refunds/request`, {
+        reason: refundReason,
+        transaction_ref: details,
+      });
+
+      enqueueSnackbar('Refund processed successfully', { variant: 'success' });
+      setOpenRefund(false);
+      setRefundReason('');
+      // Refresh data to show updated status (e.g. "refunded")
+      getTransaction();
+    } catch (err) {
+      console.error(err);
+      enqueueSnackbar(err.message || 'Failed to process refund', { variant: 'error' });
+    } finally {
+      setIsSubmittingRefund(false);
+    }
   };
 
-  const isSuccess = currentTransaction.status === 'completed';
+  if (loading && !transactionData) return <LoadingScreen />;
+
+  if (error || !transactionData) {
+    return (
+      <Container maxWidth={themeStretch ? false : 'xl'}>
+        <EmptyContent
+          title="Transaction Not Found"
+          description="The reference provided is invalid or the transaction has been archived."
+        />
+      </Container>
+    );
+  }
+
+  const { transaction, total_deducted } = transactionData;
+  const isSuccess = transaction.status === 'success';
 
   return (
     <>
       <Head>
-        <title> Transaction Details | PayLens</title>
+        <title>TX: {transaction.reference} | PayLens</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>
-        {/* Header Section */}
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          spacing={2}
-          alignItems={{ md: 'center' }}
-          justifyContent="space-between"
-          sx={{ mb: 5 }}
-        >
-          <Stack spacing={1}>
-            <Typography variant="h3">Transaction {currentTransaction.id}</Typography>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                {fDateTime(currentTransaction.date)}
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <IconButton
+              onClick={() => push('/dashboard/transactions')}
+              sx={{ bgcolor: 'action.hover' }}
+            >
+              <Iconify icon="eva:arrow-back-fill" />
+            </IconButton>
+            <Box>
+              <Typography variant="h4" sx={{ mb: 0 }}>
+                Transaction Overview
               </Typography>
-              <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'text.disabled' }} />
-              <Label status={currentTransaction.status} />
-            </Stack>
+              <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 700 }}>
+                ID: {transaction.id} • {transaction.reference}
+              </Typography>
+            </Box>
           </Stack>
 
-          <Stack direction="row" spacing={1.5}>
-            {/* Conditional Action Buttons: Only show if status is completed/success */}
-            {isSuccess && (
-              <>
-                <Button
-                  color="warning"
-                  variant="soft"
-                  startIcon={<Iconify icon="eva:diagonal-arrow-right-up-fill" />}
-                  onClick={() => setOpenWebhook(true)}
-                >
-                  Resend Webhook
-                </Button>
-
-                <Button
-                  color="error"
-                  variant="soft"
-                  startIcon={<Iconify icon="eva:undo-fill" />}
-                  onClick={() => setOpenRefund(true)}
-                >
-                  Refund
-                </Button>
-              </>
-            )}
-
-            <Button variant="contained" startIcon={<Iconify icon="eva:printer-fill" />}>
-              Print Receipt
+          <Stack direction="row" spacing={2}>
+            <Button variant="soft" color="inherit" startIcon={<Iconify icon="eva:printer-fill" />}>
+              Receipt
             </Button>
+            {isSuccess && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => setOpenWebhook(true)}
+                startIcon={<Iconify icon="eva:paper-plane-fill" />}
+              >
+                Resend Webhook
+              </Button>
+            )}
           </Stack>
         </Stack>
 
-        <Grid container spacing={3}>
-          {/* Main Content Column */}
-          <Grid item xs={12} md={8}>
-            <Stack spacing={3}>
-              <Card sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ mb: 3 }}>
-                  General Information
-                </Typography>
-                <Grid container spacing={3}>
-                  <InfoItem
-                    label="Gross Amount"
-                    value={fCurrency(currentTransaction.amount)}
-                    color="primary.main"
-                    isBold
+        <Grid container spacing={4}>
+          <Grid item xs={12} md={4}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 4,
+                borderRadius: 3,
+                position: 'relative',
+                bgcolor: 'background.neutral',
+                border: (theme) => `1px solid ${theme.palette.divider}`,
+              }}
+            >
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: -10,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: 40,
+                  height: 20,
+                  bgcolor: 'background.default',
+                  borderRadius: '0 0 50px 50px',
+                }}
+              />
+
+              <Stack alignItems="center" sx={{ mb: 4, textAlign: 'center' }}>
+                <Box
+                  sx={{
+                    mb: 2,
+                    p: 2,
+                    borderRadius: '50%',
+                    bgcolor: alpha(theme.palette[isSuccess ? 'success' : 'warning'].main, 0.1),
+                    color: theme.palette[isSuccess ? 'success' : 'warning'].main,
+                  }}
+                >
+                  <Iconify
+                    icon={isSuccess ? 'eva:checkmark-circle-2-fill' : 'eva:clock-fill'}
+                    width={48}
                   />
-                  <InfoItem label="Payment Method" value={currentTransaction.method} />
-                  <InfoItem label="Reference ID" value={currentTransaction.id} />
-                  <InfoItem label="Currency" value={currentTransaction.currency} />
+                </Box>
+                <Typography variant="h2">
+                  {fCurrency(transaction.amount, transaction.currency)}
+                </Typography>
+                <Label status={transaction.status} />
+              </Stack>
+
+              <Stack spacing={2.5}>
+                <ReceiptItem label="Category" value={transaction.category} />
+                <ReceiptItem label="Type" value={transaction.type} />
+                <ReceiptItem
+                  label="Payment Method"
+                  value={transaction.payment_method || 'Digital Wallet'}
+                />
+                <ReceiptItem label="Initiated At" value={fDateTime(transaction.created_at)} />
+                <Divider sx={{ borderStyle: 'dashed', my: 2 }} />
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    Subtotal
+                  </Typography>
+                  <Typography variant="subtitle2">
+                    {fCurrency(transaction.amount, transaction.currency)}
+                  </Typography>
+                </Stack>
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    Platform Fee
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ color: 'error.main' }}>
+                    -{fCurrency(transaction.fee, transaction.currency)}
+                  </Typography>
+                </Stack>
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography variant="h6">Settled Amount</Typography>
+                  <Typography variant="h6" sx={{ color: 'primary.main' }}>
+                    {fCurrency(total_deducted, transaction.currency)}
+                  </Typography>
+                </Stack>
+              </Stack>
+
+              {isSuccess && (
+                <Button
+                  fullWidth
+                  variant="soft"
+                  color="error"
+                  sx={{ mt: 4 }}
+                  onClick={() => setOpenRefund(true)}
+                >
+                  Initiate Refund
+                </Button>
+              )}
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} md={8}>
+            <Stack spacing={4}>
+              <Card
+                sx={{
+                  p: 0,
+                  overflow: 'hidden',
+                  border: (theme) => `1px solid ${theme.palette.divider}`,
+                }}
+              >
+                <Box
+                  sx={{
+                    p: 3,
+                    bgcolor: 'background.neutral',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Typography variant="subtitle1">Ledger Summary</Typography>
+                  <Iconify icon="eva:shield-fill" sx={{ color: 'success.main' }} />
+                </Box>
+                <Grid container>
+                  <Grid
+                    item
+                    xs={12}
+                    sm={6}
+                    sx={{
+                      p: 3,
+                      borderRight: (theme) => ({ sm: `1px solid ${theme.palette.divider}` }),
+                    }}
+                  >
+                    <Typography variant="overline" sx={{ color: 'text.disabled' }}>
+                      Balance Before
+                    </Typography>
+                    <Typography variant="h4">
+                      {fCurrency(transaction.balance_before, transaction.currency)}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6} sx={{ p: 3 }}>
+                    <Typography variant="overline" sx={{ color: 'text.disabled' }}>
+                      Balance After
+                    </Typography>
+                    <Typography variant="h4">
+                      {fCurrency(transaction.balance_after, transaction.currency)}
+                    </Typography>
+                  </Grid>
                 </Grid>
               </Card>
 
-              <Card>
-                <Box sx={{ p: 3, pb: 2 }}>
-                  <Typography variant="h6">Payment Breakdown</Typography>
-                </Box>
-                <TableContainer>
-                  <Table>
-                    <TableBody>
-                      <BreakdownRow
-                        label="Base Amount"
-                        value={fCurrency(currentTransaction.amount)}
-                      />
-                      <BreakdownRow
-                        label="Processing Fee"
-                        value={`- ${fCurrency(currentTransaction.fee)}`}
-                        color="error.main"
-                      />
-                      <BreakdownRow
-                        label="Taxes"
-                        value={`- ${fCurrency(currentTransaction.tax)}`}
-                        color="error.main"
-                      />
-                      <TableRow>
-                        <TableCell sx={{ typography: 'subtitle1' }}>Net Settlement</TableCell>
-                        <TableCell align="right" sx={{ typography: 'h6', color: 'success.main' }}>
-                          {fCurrency(currentTransaction.net)}
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Card>
-
-              <Card sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ mb: 3 }}>
-                  Activity Log
+              <Card sx={{ p: 3, border: (theme) => `1px solid ${theme.palette.divider}` }}>
+                <Typography variant="subtitle1" sx={{ mb: 3 }}>
+                  Network & Metadata
                 </Typography>
-                <Timeline position="right" sx={{ p: 0 }}>
-                  {currentTransaction.history.map((item, index) => (
-                    <TimelineItem key={index} sx={{ '&:before': { display: 'none' } }}>
-                      <TimelineSeparator>
-                        <TimelineDot color={item.color as any} variant="filled" />
-                        {index !== currentTransaction.history.length - 1 && <TimelineConnector />}
-                      </TimelineSeparator>
-                      <TimelineContent sx={{ pb: 3 }}>
-                        <Typography variant="subtitle2">{item.title}</Typography>
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          {fDateTime(item.time)}
-                        </Typography>
-                      </TimelineContent>
-                    </TimelineItem>
-                  ))}
-                </Timeline>
-              </Card>
-
-              <Card sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Admin Notes
-                </Typography>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  placeholder="Add a private note..."
-                  variant="outlined"
-                />
-                <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
-                  <Button variant="contained" color="inherit">
-                    Save Note
-                  </Button>
-                </Stack>
-              </Card>
-            </Stack>
-          </Grid>
-
-          {/* Sidebar Column */}
-          <Grid item xs={12} md={4}>
-            <Stack spacing={3}>
-              <Card sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ mb: 3 }}>
-                  Customer Profile
-                </Typography>
-                <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
-                  <Avatar
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      bgcolor: 'primary.lighter',
-                      color: 'primary.main',
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    {currentTransaction.customer.name.charAt(0)}
-                  </Avatar>
-                  <Box>
-                    <Typography variant="subtitle1">{currentTransaction.customer.name}</Typography>
-                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      {currentTransaction.customer.email}
-                    </Typography>
-                  </Box>
-                </Stack>
-                <Divider sx={{ borderStyle: 'dashed', my: 2 }} />
-                <Stack spacing={1.5}>
-                  <DetailBox label="Location" value={currentTransaction.customer.location} />
-                  <DetailBox label="IP Address" value={currentTransaction.customer.ip} />
-                  <DetailBox label="Risk Assessment" value="Low Risk" color="success.main" />
-                </Stack>
-              </Card>
-
-              <Card
-                sx={{
-                  p: 3,
-                  bgcolor: (theme) => alpha(theme.palette.info.main, 0.04),
-                  border: (theme) => `1px dashed ${theme.palette.info.main}`,
-                }}
-              >
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  alignItems="center"
-                  sx={{ mb: 2, color: 'info.main' }}
+                <Grid container spacing={3} sx={{ mb: 4 }}>
+                  <InfoItem
+                    label="IP Address"
+                    value={transaction.ip_address || 'Not Recorded'}
+                    icon="eva:globe-fill"
+                  />
+                  <InfoItem
+                    label="Location"
+                    value={transaction.location || 'Encrypted'}
+                    icon="eva:pin-fill"
+                  />
+                  <InfoItem label="Mode" value={transaction.mode} icon="eva:settings-2-fill" />
+                  <InfoItem
+                    label="Wallet Address"
+                    value={transaction.wallet?.wallet_address || 'N/A'}
+                    icon="eva:hash-fill"
+                    isAddress
+                  />
+                </Grid>
+                <Typography
+                  variant="overline"
+                  sx={{ color: 'text.disabled', display: 'block', mb: 1.5 }}
                 >
-                  <Iconify icon="eva:shield-checkmark-fill" width={24} />
-                  <Typography variant="subtitle2">Verified Payment</Typography>
-                </Stack>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  This transaction passed 3D Secure authentication and matches historical behavior.
+                  System Payload (JSON)
                 </Typography>
+                <Box
+                  sx={{
+                    p: 2,
+                    borderRadius: 1.5,
+                    bgcolor: '#1e2125',
+                    color: '#71f1a1',
+                    fontFamily: 'monospace',
+                    fontSize: '0.85rem',
+                    maxHeight: '300px',
+                    overflow: 'auto',
+                  }}
+                >
+                  {transaction.metadata ? (
+                    <pre>{JSON.stringify(transaction.metadata, null, 2)}</pre>
+                  ) : (
+                    '// No metadata'
+                  )}
+                </Box>
               </Card>
             </Stack>
           </Grid>
         </Grid>
       </Container>
 
-      {/* --- CONFIRMATION MODALS --- */}
-
-      {/* Refund Confirmation Modal */}
-      <Dialog open={openRefund} onClose={() => setOpenRefund(false)}>
+      {/* --- REFUND MODAL --- */}
+      <Dialog
+        open={openRefund}
+        onClose={() => !isSubmittingRefund && setOpenRefund(false)}
+        fullWidth
+        maxWidth="xs"
+      >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Iconify icon="eva:alert-triangle-fill" sx={{ color: 'error.main' }} />
           Confirm Refund
         </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            You are about to refund transaction <strong>{currentTransaction.id}</strong>. This will
-            return <strong>{fCurrency(currentTransaction.amount)}</strong> to the customer. This
-            action cannot be reversed.
+        <DialogContent sx={{ py: 2 }}>
+          <DialogContentText sx={{ mb: 3 }}>
+            You are about to reverse{' '}
+            <strong>{fCurrency(transaction.amount, transaction.currency)}</strong>. This action will
+            return funds to the user and cannot be undone.
           </DialogContentText>
+
+          <TextField
+            fullWidth
+            label="Reason for refund"
+            placeholder="e.g., Customer request, Duplicate payment..."
+            value={refundReason}
+            onChange={(e) => setRefundReason(e.target.value)}
+            multiline
+            rows={3}
+          />
         </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
-          <Button color="inherit" onClick={() => setOpenRefund(false)}>
+        <DialogActions sx={{ p: 3 }}>
+          <Button
+            color="inherit"
+            variant="outlined"
+            onClick={() => setOpenRefund(false)}
+            disabled={isSubmittingRefund}
+          >
             Cancel
           </Button>
-          <Button variant="contained" color="error" onClick={() => setOpenRefund(false)}>
+          <LoadingButton
+            variant="contained"
+            color="error"
+            loading={isSubmittingRefund}
+            onClick={handleRefundSubmit}
+          >
             Confirm Refund
-          </Button>
+          </LoadingButton>
         </DialogActions>
       </Dialog>
 
-      {/* Resend Webhook Confirmation Modal */}
-      <Dialog open={openWebhook} onClose={() => setOpenWebhook(false)}>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Iconify icon="eva:cloud-upload-fill" sx={{ color: 'info.main' }} />
-          Resend Webhook
-        </DialogTitle>
+      {/* WEBHOOK MODAL */}
+      <Dialog open={openWebhook} onClose={() => setOpenWebhook(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ pb: 1 }}>Trigger Webhook</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            You are about to manually resend the webhook notification for this transaction. This
-            will trigger a POST request to your configured endpoint with the current transaction
-            data.
+            Attempting to resend the callback for <strong>{transaction.reference}</strong>. Make
+            sure your listener is online.
           </DialogContentText>
         </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
-          <Button color="inherit" onClick={() => setOpenWebhook(false)}>
+        <DialogActions sx={{ p: 3 }}>
+          <Button variant="outlined" color="inherit" onClick={() => setOpenWebhook(false)}>
             Cancel
           </Button>
-          <Button variant="contained" color="primary" onClick={() => setOpenWebhook(false)}>
-            Send Webhook
+          <Button
+            variant="contained"
+            onClick={() => {
+              setOpenWebhook(false);
+              enqueueSnackbar('Process Started');
+            }}
+          >
+            Confirm Dispatch
           </Button>
         </DialogActions>
       </Dialog>
@@ -346,19 +439,20 @@ export default function PageFour() {
 // ----------------------------------------------------------------------
 
 function Label({ status }: { status: string }) {
-  const isSuccess = status === 'completed';
+  const isSuccess = status === 'success';
   return (
     <Typography
       variant="caption"
       sx={{
-        px: 1,
+        mt: 1,
+        px: 1.5,
         py: 0.5,
-        borderRadius: 0.75,
-        fontWeight: 'bold',
-        textTransform: 'capitalize',
-        bgcolor: (theme) =>
-          alpha(isSuccess ? theme.palette.success.main : theme.palette.warning.main, 0.16),
-        color: isSuccess ? 'success.main' : 'warning.main',
+        borderRadius: 10,
+        fontWeight: 900,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        bgcolor: (theme: any) => alpha(theme.palette[isSuccess ? 'success' : 'warning'].main, 0.15),
+        color: (theme: any) => theme.palette[isSuccess ? 'success' : 'warning'].main,
       }}
     >
       {status}
@@ -366,61 +460,46 @@ function Label({ status }: { status: string }) {
   );
 }
 
-function InfoItem({
-  label,
-  value,
-  color,
-  isBold,
-}: {
-  label: string;
-  value: string;
-  color?: string;
-  isBold?: boolean;
-}) {
+function ReceiptItem({ label, value }: any) {
   return (
-    <Grid item xs={12} sm={6}>
-      <Typography
-        variant="caption"
-        sx={{
-          color: 'text.secondary',
-          textTransform: 'uppercase',
-          fontWeight: 'bold',
-          display: 'block',
-          mb: 0.5,
-        }}
-      >
-        {label}
-      </Typography>
-      <Typography
-        variant="subtitle1"
-        sx={{ color: color || 'text.primary', fontWeight: isBold ? 800 : 600 }}
-      >
-        {value}
-      </Typography>
-    </Grid>
-  );
-}
-
-function BreakdownRow({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <TableRow>
-      <TableCell sx={{ color: 'text.secondary' }}>{label}</TableCell>
-      <TableCell align="right" sx={{ color: color || 'text.primary', fontWeight: 600 }}>
-        {value}
-      </TableCell>
-    </TableRow>
-  );
-}
-
-function DetailBox({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <Stack direction="row" justifyContent="space-between" sx={{ mt: 1.5 }}>
+    <Stack direction="row" justifyContent="space-between">
       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
         {label}
       </Typography>
-      <Typography variant="subtitle2" sx={{ color: color || 'text.primary' }}>
+      <Typography variant="subtitle2" sx={{ textAlign: 'right', fontWeight: 700 }}>
         {value}
       </Typography>
     </Stack>
+  );
+}
+
+function InfoItem({ label, value, icon, isAddress }: any) {
+  return (
+    <Grid item xs={12} sm={6}>
+      <Stack direction="row" spacing={1.5} alignItems="center">
+        <Box sx={{ p: 1, borderRadius: 1, bgcolor: 'background.neutral' }}>
+          <Iconify icon={icon} sx={{ width: 20, color: 'text.secondary' }} />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography
+            variant="caption"
+            sx={{ color: 'text.disabled', fontWeight: 800, display: 'block' }}
+          >
+            {label}
+          </Typography>
+          <Typography
+            variant="subtitle2"
+            sx={{
+              textTransform: isAddress ? 'none' : 'capitalize',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {value}
+          </Typography>
+        </Box>
+      </Stack>
+    </Grid>
   );
 }

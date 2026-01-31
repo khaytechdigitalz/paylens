@@ -1,7 +1,7 @@
-/* eslint-disable no-alert */
-import { useState, useMemo, SetStateAction } from 'react';
+/* eslint-disable import/no-named-as-default */
+/* eslint-disable @typescript-eslint/no-shadow */
+import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
-import * as XLSX from 'xlsx';
 // @mui
 import {
   Grid,
@@ -17,15 +17,12 @@ import {
   TableContainer,
   Drawer,
   Box,
-  Modal,
-  TextField,
-  MenuItem,
-  InputAdornment,
-  CircularProgress,
-  Alert,
-  Stepper,
-  Step,
-  StepLabel,
+  alpha,
+  useTheme,
+  Pagination,
+  Skeleton,
+  Divider,
+  IconButton,
 } from '@mui/material';
 // layouts
 import DashboardLayout from '../../../layouts/dashboard';
@@ -34,127 +31,103 @@ import Iconify from '../../../components/iconify';
 import Scrollbar from '../../../components/scrollbar';
 import StatWidget from '../../../components/widgets/StatWidget';
 import { useSettingsContext } from '../../../components/settings';
-import {
-  useTable,
-  getComparator,
-  TableNoData,
-  TableHeadCustom,
-  TablePaginationCustom,
-} from '../../../components/table';
+import { TableNoData, TableHeadCustom } from '../../../components/table';
+import TransactionTableToolbar from './TransactionTableToolbar';
+// Internal Component
+import PayoutModal from './PayoutModal';
 // utils
-import { fDate, fDateTime } from '../../../utils/formatTime';
+import { fDateTime } from '../../../utils/formatTime';
 import { fCurrency } from '../../../utils/formatNumber';
-import { TransactionTableToolbar } from './TransactionTableToolbar';
+import axios from '../../../utils/axios';
 
 // ----------------------------------------------------------------------
-
-type Payout = {
-  id: string;
-  reference: string;
-  amount: number;
-  currency: 'NGN';
-  status: 'paid' | 'pending' | 'in_transit' | 'failed';
-  arrivalDate: string;
-  bankName: string;
-  accountNumber: string;
-};
 
 const TABLE_HEAD = [
-  { id: 'arrivalDate', label: 'Date', align: 'left' },
+  { id: 'created_at', label: 'Date/Time', align: 'left' },
+  { id: 'transaction_id', label: 'Reference', align: 'left' },
+  { id: 'destination', label: 'Beneficiary', align: 'left' },
+  { id: 'narration', label: 'Narration', align: 'left' },
   { id: 'amount', label: 'Amount', align: 'left' },
-  { id: 'status', label: 'Status', align: 'left' },
-  { id: 'bank', label: 'Destination', align: 'left' },
-  { id: 'reference', label: 'Reference', align: 'right' },
+  { id: 'status', label: 'Status', align: 'center' },
+  { id: 'action', label: '', align: 'right' },
 ];
-
-const MOCK_PAYOUTS: Payout[] = [
-  {
-    id: 'PO-991',
-    reference: 'SETTL-88210',
-    amount: 45000,
-    currency: 'NGN',
-    status: 'paid',
-    arrivalDate: '2026-01-15T10:00:00Z',
-    bankName: 'Access Bank',
-    accountNumber: '0123456789',
-  },
-  {
-    id: 'PO-992',
-    reference: 'SETTL-88215',
-    amount: 125000,
-    currency: 'NGN',
-    status: 'in_transit',
-    arrivalDate: '2026-01-17T14:20:00Z',
-    bankName: 'Zenith Bank',
-    accountNumber: '9876543210',
-  },
-  {
-    id: 'PO-993',
-    reference: 'SETTL-88220',
-    amount: 15000,
-    currency: 'NGN',
-    status: 'pending',
-    arrivalDate: '2026-01-18T08:00:00Z',
-    bankName: 'Kuda Bank',
-    accountNumber: '1122334455',
-  },
-];
-
-const BANKS = ['Access Bank', 'GTBank', 'Zenith Bank', 'First Bank', 'UBA', 'Kuda Bank'];
 
 // ----------------------------------------------------------------------
 
-PayoutHistoryPage.getLayout = (page: React.ReactElement) => (
-  <DashboardLayout>{page}</DashboardLayout>
-);
+PayoutsPage.getLayout = (page: React.ReactElement) => <DashboardLayout>{page}</DashboardLayout>;
 
-export default function PayoutHistoryPage() {
+export default function PayoutsPage() {
+  const theme = useTheme();
   const { themeStretch } = useSettingsContext();
-  const { page, order, orderBy, rowsPerPage, onSort, onChangePage, onChangeRowsPerPage } =
-    useTable();
 
-  // Filters
+  // Data & Pagination States
+  const [payouts, setPayouts] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Filter States
   const [filterName, setFilterName] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
 
-  // UI States
+  // UI Control States
   const [openDrawer, setOpenDrawer] = useState(false);
-  const [selectedPayout, setSelectedPayout] = useState<Payout | null>(null);
-  const [openModal, setOpenModal] = useState(false);
+  const [selectedPayout, setSelectedPayout] = useState<any>(null);
+  const [openPayoutModal, setOpenPayoutModal] = useState(false);
 
-  const dataFiltered = useMemo(() => {
-    const filtered = MOCK_PAYOUTS.filter((item) => {
-      const matchRef = item.reference.toLowerCase().includes(filterName.toLowerCase());
-      let matchDate = true;
-      if (filterStartDate)
-        matchDate = matchDate && new Date(item.arrivalDate) >= new Date(filterStartDate);
-      if (filterEndDate)
-        matchDate = matchDate && new Date(item.arrivalDate) <= new Date(filterEndDate);
-      return matchRef && matchDate;
-    });
-    return filtered.sort((a, b) => getComparator(order, orderBy)(a as any, b as any));
-  }, [filterName, filterStartDate, filterEndDate, order, orderBy]);
+  const glassStyle = {
+    backdropFilter: 'blur(10px)',
+    backgroundColor: alpha(theme.palette.background.paper, 0.8),
+    border: `1px solid ${alpha(theme.palette.common.white, 0.1)}`,
+    boxShadow: theme.customShadows.z20,
+  };
 
-  // FUNCTIONAL EXPORT LOGIC
-  const handleExportXLS = () => {
-    // 1. Map data to human-readable format for Excel
-    const exportData = dataFiltered.map((payout) => ({
-      'Arrival Date': fDateTime(payout.arrivalDate),
-      'Amount (NGN)': payout.amount,
-      Status: payout.status.toUpperCase(),
-      'Bank Name': payout.bankName,
-      'Account Number': payout.accountNumber,
-      Reference: payout.reference,
-    }));
+  // FETCH DATA
+  const fetchPayouts = useCallback(
+    async (targetPage = currentPage) => {
+      setLoading(true);
+      try {
+        const params: any = { page: targetPage };
+        if (filterName) params.search = filterName;
+        if (filterStatus !== 'all') params.status = filterStatus;
+        if (filterStartDate) params.start_date = filterStartDate;
+        if (filterEndDate) params.end_date = filterEndDate;
 
-    // 2. Create worksheet and workbook
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Payout History');
+        const response = await axios.get('/payouts', { params });
 
-    // 3. Trigger download
-    XLSX.writeFile(workbook, `PayLens_Payouts_NGN_${new Date().toISOString().split('T')[0]}.xlsx`);
+        if (response.data.status === 'success') {
+          setPayouts(response.data.data.data);
+          setStats(response.data.stats);
+          setTotalPages(response.data.data.last_page || 1);
+        }
+      } catch (error) {
+        console.error('Fetch error:', error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [currentPage, filterName, filterStatus, filterStartDate, filterEndDate]
+  );
+
+  useEffect(() => {
+    fetchPayouts();
+  }, [fetchPayouts, currentPage]);
+
+  const handleFilterSubmit = () => {
+    setCurrentPage(1);
+    fetchPayouts(1);
+  };
+
+  const handleClearFilter = () => {
+    setFilterName('');
+    setFilterStatus('all');
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setCurrentPage(1);
+    setTimeout(() => fetchPayouts(1), 0);
   };
 
   return (
@@ -166,172 +139,241 @@ export default function PayoutHistoryPage() {
       <Container maxWidth={themeStretch ? false : 'xl'}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 5 }}>
           <Box>
-            <Typography variant="h3">NGN Payouts</Typography>
+            <Typography variant="h3" sx={{ fontWeight: 800 }}>
+              NGN Payouts
+            </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Manage your settlements and manual withdrawals.
+              Manage your business disbursements and real-time tracking.
             </Typography>
           </Box>
-
           <Button
             variant="contained"
-            startIcon={<Iconify icon="solar:card-send-bold" />}
-            onClick={() => setOpenModal(true)}
+            startIcon={<Iconify icon="solar:add-circle-bold" />}
+            onClick={() => setOpenPayoutModal(true)}
+            sx={{ height: 48, px: 3, boxShadow: (theme) => theme.customShadows.primary }}
           >
-            Initiate Payout
+            New Payout
           </Button>
         </Stack>
 
+        {/* STATS RIBBON */}
         <Grid container spacing={3} sx={{ mb: 5 }}>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={2.4}>
             <StatWidget
-              title="Total Paid Out"
-              amount={fCurrency(170000, 'NGN')}
+              title="Total Payouts"
+              amount={loading ? '...' : (stats?.total_payouts || 0).toString()}
               variant="primary"
-              icon={<Iconify icon="solar:safe-square-bold-duotone" />}
+              icon={<Iconify icon="solar:list-bold-duotone" />}
             />
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={2.4}>
             <StatWidget
-              title="Available Balance"
-              amount={fCurrency(85400, 'NGN')}
+              title="Successful"
+              amount={loading ? '...' : (stats?.successful_payouts || 0).toString()}
               variant="success"
-              icon={<Iconify icon="solar:wallet-bold-duotone" />}
+              icon={<Iconify icon="solar:check-circle-bold-duotone" />}
             />
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={2.4}>
             <StatWidget
-              title="Pending Settlement"
-              amount={fCurrency(125000, 'NGN')}
+              title="Pending"
+              amount={loading ? '...' : (stats?.pending_payouts || 0).toString()}
               variant="warning"
               icon={<Iconify icon="solar:clock-circle-bold-duotone" />}
             />
           </Grid>
+          <Grid item xs={12} md={2.4}>
+            <StatWidget
+              title="Total Volume"
+              amount={loading ? '...' : fCurrency(stats?.total_volume || 0, 'NGN')}
+              variant="info"
+              icon={<Iconify icon="solar:wad-of-money-bold-duotone" />}
+            />
+          </Grid>
+          <Grid item xs={12} md={2.4}>
+            <StatWidget
+              title="Total Fees"
+              amount={loading ? '...' : fCurrency(stats?.total_fees || 0, 'NGN')}
+              variant="error"
+              icon={<Iconify icon="solar:ticket-sale-bold-duotone" />}
+            />
+          </Grid>
         </Grid>
 
-        <Card>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ pr: 2 }}>
-            <TransactionTableToolbar
-              filterName={filterName}
-              startDate={filterStartDate}
-              endDate={filterEndDate}
-              onFilterName={(e: { target: { value: SetStateAction<string>; }; }) => setFilterName(e.target.value)}
-              onChangeStartDate={(e: { target: { value: SetStateAction<string>; }; }) => setFilterStartDate(e.target.value)}
-              onChangeEndDate={(e: { target: { value: SetStateAction<string>; }; }) => setFilterEndDate(e.target.value)}
-            />
-            <Button
-              variant="soft"
-              color="info"
-              startIcon={<Iconify icon="solar:file-download-bold-duotone" />}
-              onClick={handleExportXLS}
-            >
-              Export XLS
-            </Button>
-          </Stack>
+        <Card sx={{ ...glassStyle, p: 0 }}>
+          <TransactionTableToolbar
+            filterName={filterName}
+            filterStatus={filterStatus}
+            startDate={filterStartDate}
+            endDate={filterEndDate}
+            onFilterName={(e) => setFilterName(e.target.value)}
+            onFilterStatus={(e) => setFilterStatus(e.target.value)}
+            onChangeStartDate={(e) => setFilterStartDate(e.target.value)}
+            onChangeEndDate={(e) => setFilterEndDate(e.target.value)}
+            onFilterClick={handleFilterSubmit}
+            onClearFilter={handleClearFilter}
+            loading={loading}
+          />
 
           <TableContainer>
             <Scrollbar>
-              <Table sx={{ minWidth: 800 }}>
-                <TableHeadCustom
-                  order={order}
-                  orderBy={orderBy}
-                  headLabel={TABLE_HEAD}
-                  onSort={onSort}
-                />
+              <Table sx={{ minWidth: 1000 }}>
+                <TableHeadCustom headLabel={TABLE_HEAD} />
                 <TableBody>
-                  {dataFiltered
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((row) => (
-                      <TableRow
-                        hover
-                        key={row.id}
-                        onClick={() => {
-                          setSelectedPayout(row);
-                          setOpenDrawer(true);
-                        }}
-                        sx={{ cursor: 'pointer' }}
-                      >
-                        <TableCell>{fDate(row.arrivalDate)}</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>
-                          {fCurrency(row.amount, 'NGN')}
-                        </TableCell>
-                        <TableCell>
-                          <Box
-                            sx={{
-                              display: 'inline-flex',
-                              px: 1,
-                              py: 0.5,
-                              borderRadius: 0.75,
-                              typography: 'caption',
-                              fontWeight: 'bold',
-                              bgcolor:
-                                row.status === 'paid' ? 'success.lighter' : 'warning.lighter',
-                              color: row.status === 'paid' ? 'success.darker' : 'warning.darker',
-                              textTransform: 'capitalize',
-                            }}
-                          >
-                            {row.status.replace('_', ' ')}
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">{row.bankName}</Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            ****{row.accountNumber.slice(-4)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontFamily: 'monospace' }}>
-                          {row.reference}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  <TableNoData isNotFound={!dataFiltered.length} />
+                  {loading
+                    ? [...Array(5)].map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell colSpan={7}>
+                            <Skeleton height={60} />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    : payouts.map((row) => (
+                        <TableRow
+                          key={row.id}
+                          hover
+                          onClick={() => {
+                            setSelectedPayout(row);
+                            setOpenDrawer(true);
+                          }}
+                          sx={{ cursor: 'pointer' }}
+                        >
+                          <TableCell>
+                            <Typography variant="subtitle2">{fDateTime(row.created_at)}</Typography>
+                          </TableCell>
+                          <TableCell sx={{ typography: 'caption', fontFamily: 'monospace' }}>
+                            {row.transaction_id}
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="subtitle2">{row.account_name || 'N/A'}</Typography>
+                            <Typography
+                              variant="caption"
+                              sx={{ color: 'text.secondary', display: 'block' }}
+                            >
+                              {row.bank_name} • {row.account_number}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ color: 'text.secondary' }} noWrap>
+                              {row.narration || '—'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="subtitle2">
+                              {fCurrency(row.amount, 'NGN')}
+                            </Typography>
+                            <Typography variant="caption" color="error">
+                              Fee: {fCurrency(row.fee, 'NGN')}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Box
+                              sx={{
+                                px: 1.2,
+                                py: 0.5,
+                                borderRadius: 1,
+                                typography: 'caption',
+                                fontWeight: 'bold',
+                                bgcolor:
+                                  row.status === 'success'
+                                    ? alpha(theme.palette.success.main, 0.12)
+                                    : alpha(theme.palette.warning.main, 0.12),
+                                color: row.status === 'success' ? 'success.dark' : 'warning.dark',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              {row.status}
+                            </Box>
+                          </TableCell>
+                          <TableCell align="right">
+                            <IconButton>
+                              <Iconify icon="solar:eye-bold-duotone" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  <TableNoData isNotFound={!loading && payouts.length === 0} />
                 </TableBody>
               </Table>
             </Scrollbar>
           </TableContainer>
-          <TablePaginationCustom
-            count={dataFiltered.length}
-            page={page}
-            rowsPerPage={rowsPerPage}
-            onPageChange={onChangePage}
-            onRowsPerPageChange={onChangeRowsPerPage}
-          />
+
+          <Divider sx={{ borderStyle: 'dashed' }} />
+
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              Page {currentPage} of {totalPages}
+            </Typography>
+            <Pagination
+              count={totalPages}
+              page={currentPage}
+              onChange={(_, value) => setCurrentPage(value)}
+              color="primary"
+              shape="rounded"
+            />
+          </Stack>
         </Card>
       </Container>
 
-      <InitiatePayoutModal open={openModal} onClose={() => setOpenModal(false)} />
+      {/* THE UPDATED BEAUTIFUL PAYOUT MODAL */}
+      <PayoutModal
+        open={openPayoutModal}
+        onClose={() => setOpenPayoutModal(false)}
+        onSuccess={() => {
+          fetchPayouts(1); // Refresh data on success
+        }}
+      />
 
+      {/* SIDE DRAWER FOR DETAILS */}
       <Drawer
         anchor="right"
         open={openDrawer}
         onClose={() => setOpenDrawer(false)}
-        PaperProps={{ sx: { width: 350 } }}
+        PaperProps={{
+          sx: { width: 420, ...glassStyle, borderLeft: `1px solid ${theme.palette.divider}` },
+        }}
       >
         {selectedPayout && (
           <Box sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 3 }}>
-              Payout Details
-            </Typography>
-            <Stack spacing={2}>
-              <Box sx={{ p: 2, bgcolor: 'background.neutral', borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Amount
-                </Typography>
-                <Typography variant="h4">{fCurrency(selectedPayout.amount, 'NGN')}</Typography>
-              </Box>
-              <Typography variant="body2">
-                <strong>Bank:</strong> {selectedPayout.bankName}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Account:</strong> {selectedPayout.accountNumber}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Ref:</strong> {selectedPayout.reference}
-              </Typography>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<Iconify icon="solar:printer-minimalistic-bold" />}
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              sx={{ mb: 4 }}
+            >
+              <Typography variant="h6">Payout Details</Typography>
+              <IconButton onClick={() => setOpenDrawer(false)}>
+                <Iconify icon="eva:close-fill" />
+              </IconButton>
+            </Stack>
+            <Stack spacing={3}>
+              <Box
+                sx={{
+                  p: 3,
+                  borderRadius: 2,
+                  bgcolor: alpha(theme.palette.primary.main, 0.05),
+                  textAlign: 'center',
+                  border: `1px dashed ${theme.palette.primary.main}`,
+                }}
               >
+                <Typography variant="overline" color="text.secondary">
+                  Amount Paid
+                </Typography>
+                <Typography variant="h3">{fCurrency(selectedPayout.amount, 'NGN')}</Typography>
+              </Box>
+              <Stack spacing={2} sx={{ p: 2, bgcolor: 'background.neutral', borderRadius: 2 }}>
+                <DetailItem label="Status" value={selectedPayout.status.toUpperCase()} />
+                <DetailItem label="Reference" value={selectedPayout.transaction_id} />
+                <DetailItem label="Narration" value={selectedPayout.narration || 'N/A'} />
+                <Divider />
+                <DetailItem label="Beneficiary" value={selectedPayout.account_name || 'N/A'} />
+                <DetailItem label="Bank" value={selectedPayout.bank_name || 'N/A'} />
+                <DetailItem label="Account No." value={selectedPayout.account_number || 'N/A'} />
+                <Divider />
+                <DetailItem label="Fee Charged" value={fCurrency(selectedPayout.fee, 'NGN')} />
+                <DetailItem label="Date" value={fDateTime(selectedPayout.created_at)} />
+              </Stack>
+              <Button fullWidth size="large" variant="contained">
                 Download Receipt
               </Button>
             </Stack>
@@ -342,135 +384,15 @@ export default function PayoutHistoryPage() {
   );
 }
 
-// ----------------------------------------------------------------------
-
-function InitiatePayoutModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [step, setStep] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [accountName, setAccountName] = useState('');
-  const [form, setForm] = useState({ bank: '', account: '', amount: '', pin: '' });
-
-  const handleValidate = () => {
-    if (form.account.length !== 10) return;
-    setLoading(true);
-    setTimeout(() => {
-      setAccountName('CHUKWUMA ADESINA O.');
-      setLoading(false);
-      setStep(1);
-    }, 1200);
-  };
-
-  const handleFinalSubmit = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      alert('Payout Initiated Successfully!');
-      onClose();
-      setStep(0);
-      setForm({ bank: '', account: '', amount: '', pin: '' });
-      setAccountName('');
-    }, 1800);
-  };
-
+function DetailItem({ label, value }: { label: string; value: string }) {
   return (
-    <Modal open={open} onClose={onClose}>
-      <Box
-        sx={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 450,
-          bgcolor: 'background.paper',
-          borderRadius: 2,
-          p: 4,
-        }}
-      >
-        <Typography variant="h5" sx={{ mb: 1 }}>
-          Withdraw Funds
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Available for withdrawal: <strong>₦85,400.00</strong>
-        </Typography>
-
-        <Stepper activeStep={step} sx={{ mb: 4 }}>
-          <Step>
-            <StepLabel>Bank Info</StepLabel>
-          </Step>
-          <Step>
-            <StepLabel>Authorize</StepLabel>
-          </Step>
-        </Stepper>
-
-        {step === 0 ? (
-          <Stack spacing={3}>
-            <TextField
-              select
-              fullWidth
-              label="Destination Bank"
-              value={form.bank}
-              onChange={(e) => setForm({ ...form, bank: e.target.value })}
-            >
-              {BANKS.map((bank) => (
-                <MenuItem key={bank} value={bank}>
-                  {bank}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              fullWidth
-              label="Account Number"
-              value={form.account}
-              onChange={(e) => setForm({ ...form, account: e.target.value })}
-              inputProps={{ maxLength: 10 }}
-            />
-            <Button
-              fullWidth
-              variant="contained"
-              size="large"
-              disabled={!form.bank || form.account.length < 10 || loading}
-              onClick={handleValidate}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Verify Account'}
-            </Button>
-          </Stack>
-        ) : (
-          <Stack spacing={3}>
-            <Alert severity="info">
-              Account: <strong>{accountName}</strong>
-            </Alert>
-            <TextField
-              fullWidth
-              label="Amount to Withdraw"
-              type="number"
-              value={form.amount}
-              onChange={(e) => setForm({ ...form, amount: e.target.value })}
-              InputProps={{ startAdornment: <InputAdornment position="start">₦</InputAdornment> }}
-            />
-            <TextField
-              fullWidth
-              label="Security PIN"
-              type="password"
-              value={form.pin}
-              onChange={(e) => setForm({ ...form, pin: e.target.value })}
-              inputProps={{ maxLength: 4, style: { textAlign: 'center', letterSpacing: '8px' } }}
-            />
-            <Stack direction="row" spacing={2}>
-              <Button fullWidth variant="outlined" onClick={() => setStep(0)}>
-                Back
-              </Button>
-              <Button
-                fullWidth
-                variant="contained"
-                disabled={!form.amount || form.pin.length < 4 || loading}
-                onClick={handleFinalSubmit}
-              >
-                {loading ? <CircularProgress size={24} /> : 'Complete Transfer'}
-              </Button>
-            </Stack>
-          </Stack>
-        )}
-      </Box>
-    </Modal>
+    <Stack direction="row" justifyContent="space-between" spacing={2}>
+      <Typography variant="caption" sx={{ color: 'text.secondary', flexShrink: 0 }}>
+        {label}
+      </Typography>
+      <Typography variant="subtitle2" sx={{ textAlign: 'right' }}>
+        {value}
+      </Typography>
+    </Stack>
   );
 }

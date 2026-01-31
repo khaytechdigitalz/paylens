@@ -1,9 +1,6 @@
-/* eslint-disable import/extensions */
 /* eslint-disable react/jsx-curly-brace-presence */
-/* eslint-disable func-names */
-/* eslint-disable react/jsx-no-bind */
-/* eslint-disable no-alert */
-import { useState, useMemo, SetStateAction } from 'react';
+/* eslint-disable import/extensions */
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import * as XLSX from 'xlsx';
@@ -27,7 +24,9 @@ import {
   CardActionArea,
   MenuItem,
   TextField,
+  LinearProgress,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 // layouts
 import DashboardLayout from '../../../layouts/dashboard';
 // components
@@ -37,43 +36,37 @@ import StatWidget from '../../../components/widgets/StatWidget';
 import { useSettingsContext } from '../../../components/settings';
 import {
   useTable,
-  getComparator,
   TableNoData,
   TableHeadCustom,
   TablePaginationCustom,
 } from '../../../components/table';
 // utils
-import { fDate } from '../../../utils/formatTime';
+import { fDate, fDateTime } from '../../../utils/formatTime';
 import { fCurrency } from '../../../utils/formatNumber';
 import { TransactionTableToolbar } from './billstabletoolbar';
-
-// IMPORT YOUR CUSTOM RECEIPT COMPONENT
 import TransactionReceipt from './receipt';
+// axios instance
+import axios from '../../../utils/axios';
 
 // ----------------------------------------------------------------------
 
-type BillPayment = {
-  id: string;
-  ref: string;
-  amount: number;
-  beneficiary: string;
-  company: string;
-  plan: string;
-  date: string;
-  status: 'successful' | 'failed' | 'pending';
-  category: 'Airtime' | 'Data' | 'Cable TV' | 'Electricity';
-};
-
 const TABLE_HEAD = [
   { id: 'date', label: 'Date', align: 'left' },
-  { id: 'company', label: 'Company', align: 'left' },
+  { id: 'type', label: 'Service', align: 'left' },
   { id: 'beneficiary', label: 'Beneficiary', align: 'left' },
-  { id: 'plan', label: 'Plan', align: 'left' },
+  { id: 'network', label: 'Provider', align: 'left' },
   { id: 'amount', label: 'Amount', align: 'left' },
-  { id: 'ref', label: 'Reference', align: 'right' },
+  { id: 'status', label: 'Status', align: 'left' },
+  { id: 'action', label: '', align: 'right' },
 ];
 
-const CATEGORY_OPTIONS = ['All', 'Airtime', 'Data', 'Cable TV', 'Electricity'];
+const CATEGORY_OPTIONS = [
+  { label: 'All Categories', value: 'All' },
+  { label: 'Airtime', value: 'airtime' },
+  { label: 'Internet', value: 'internet' },
+  { label: 'Cable TV', value: 'cabletv' },
+  { label: 'Electricity', value: 'electricity' },
+];
 
 const BILL_SERVICES = [
   { title: 'Airtime', icon: 'solar:phone-calling-bold-duotone', path: 'airtime', color: '#007BFF' },
@@ -83,48 +76,12 @@ const BILL_SERVICES = [
     path: 'internet',
     color: '#28A745',
   },
-  { title: 'Cable TV', icon: 'solar:tv-bold-duotone', path: 'cable', color: '#FFC107' },
+  { title: 'Cable TV', icon: 'solar:tv-bold-duotone', path: 'cabletv', color: '#FFC107' },
   {
     title: 'Electricity',
     icon: 'solar:plug-circle-bold-duotone',
     path: 'electricity',
     color: '#FD7E14',
-  },
-];
-
-const MOCK_BILLS: BillPayment[] = [
-  {
-    id: 'B-001',
-    ref: 'BILL-7721',
-    amount: 5000,
-    beneficiary: '08012345678',
-    company: 'MTN',
-    plan: '6GB Data Monthly',
-    date: '2026-01-16T10:00:00Z',
-    status: 'successful',
-    category: 'Data',
-  },
-  {
-    id: 'B-002',
-    ref: 'BILL-7725',
-    amount: 18500,
-    beneficiary: '4421009921',
-    company: 'DSTV',
-    plan: 'Premium Bouquet',
-    date: '2026-01-16T14:30:00Z',
-    status: 'successful',
-    category: 'Cable TV',
-  },
-  {
-    id: 'B-003',
-    ref: 'BILL-7730',
-    amount: 10000,
-    beneficiary: '01012293844',
-    company: 'Ikeja Electric',
-    plan: 'Prepaid Token',
-    date: '2026-01-17T09:15:00Z',
-    status: 'pending',
-    category: 'Electricity',
   },
 ];
 
@@ -137,66 +94,77 @@ BillsHistoryPage.getLayout = (page: React.ReactElement) => (
 export default function BillsHistoryPage() {
   const { push } = useRouter();
   const { themeStretch } = useSettingsContext();
-  const { page, order, orderBy, rowsPerPage, onSort, onChangePage, onChangeRowsPerPage } =
-    useTable();
+
+  const { page, order, orderBy, rowsPerPage, setPage, onSort, onChangeRowsPerPage } = useTable();
 
   // States
+  const [bills, setBills] = useState([]);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [totalItems, setTotalItems] = useState(0);
+
   const [filterName, setFilterName] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
   const [openServiceModal, setOpenServiceModal] = useState(false);
   const [openDetailsDrawer, setOpenDetailsDrawer] = useState(false);
-  const [selectedBill, setSelectedBill] = useState<BillPayment | null>(null);
+  const [selectedBill, setSelectedBill] = useState<any | null>(null);
   const [openReceipt, setOpenReceipt] = useState(false);
 
-  // Filter Logic
-  const dataFiltered = useMemo(() => {
-    let filtered = MOCK_BILLS;
-
-    if (filterCategory !== 'All') {
-      filtered = filtered.filter((item) => item.category === filterCategory);
+  // Fetch Data from API
+  const getBills = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get('/bills/history', {
+        params: {
+          page: page + 1,
+          per_page: rowsPerPage,
+          category: filterCategory !== 'All' ? filterCategory : undefined,
+          search: filterName || undefined,
+        },
+      });
+      setBills(response.data.bills.data);
+      setStats(response.data.statistics);
+      setTotalItems(response.data.bills.total);
+    } catch (error) {
+      console.error('API Error:', error);
+    } finally {
+      setLoading(false);
     }
+  }, [page, rowsPerPage, filterCategory, filterName]);
 
-    if (filterName) {
-      filtered = filtered.filter(
-        (item) =>
-          item.ref.toLowerCase().includes(filterName.toLowerCase()) ||
-          item.beneficiary.toLowerCase().includes(filterName.toLowerCase()) ||
-          item.company.toLowerCase().includes(filterName.toLowerCase())
-      );
-    }
+  useEffect(() => {
+    getBills();
+  }, [getBills]);
 
-    return filtered.sort((a, b) => getComparator(order, orderBy)(a as any, b as any));
-  }, [filterName, filterCategory, order, orderBy]);
-
-  const handleOpenDetails = (row: BillPayment) => {
+  const handleOpenDetails = (row: any) => {
     setSelectedBill(row);
     setOpenDetailsDrawer(true);
   };
 
-  const handlePrintReceipt = (row: BillPayment) => {
+  const handlePrintReceipt = (row: any) => {
     setSelectedBill(row);
     setOpenReceipt(true);
   };
 
   const handleExportXLS = () => {
-    const ws = XLSX.utils.json_to_sheet(dataFiltered);
+    const ws = XLSX.utils.json_to_sheet(bills);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Bills');
-    XLSX.writeFile(wb, `Bills_History_${fDate(new Date())}.xlsx`);
+    XLSX.writeFile(wb, `Bills_Export_${new Date().getTime()}.xlsx`);
   };
 
   return (
     <>
       <Head>
-        <title> Bills History | PayLens</title>
+        <title>Bills History | PayLens</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 5 }}>
           <Box>
             <Typography variant="h3">Bills History</Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Filter and manage your utility payments.
+            <Typography variant="body2" color="text.secondary">
+              Managing utility payments and history.
             </Typography>
           </Box>
           <Button
@@ -208,62 +176,62 @@ export default function BillsHistoryPage() {
           </Button>
         </Stack>
 
+        {/* Statistics Section */}
         <Grid container spacing={3} sx={{ mb: 5 }}>
-          <Grid item xs={12} md={4}>
-            <StatWidget
-              title="Total Spent"
-              amount={fCurrency(33500, 'NGN')}
-              variant="primary"
-              icon={<Iconify icon="solar:bill-list-bold-duotone" width={32} />}
-            />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <StatWidget
-              title="Success Rate"
-              amount="98%"
-              variant="success"
-              icon={<Iconify icon="solar:check-circle-bold-duotone" width={32} />}
-            />
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <StatWidget
-              title="Pending"
-              amount={fCurrency(10000, 'NGN')}
-              variant="warning"
-              icon={<Iconify icon="solar:clock-circle-bold-duotone" width={32} />}
-            />
-          </Grid>
+          {BILL_SERVICES.map((service) => {
+            const apiType = service.path === 'cable' ? 'cabletv' : service.path;
+            const categoryData = stats?.categories?.[apiType];
+
+            return (
+              <Grid item xs={12} sm={6} md={3} key={service.title}>
+                <StatWidget
+                  title={service.title}
+                  amount={fCurrency(categoryData?.total_amount || 0, 'NGN')}
+                  icon={<Iconify icon={service.icon} width={32} />}
+                  
+                />
+                <Typography
+                  variant="caption"
+                  sx={{ mt: 0.5, display: 'block', color: 'text.secondary', textAlign: 'center' }}
+                >
+                  {categoryData?.total_count || 0} Transactions
+                </Typography>
+              </Grid>
+            );
+          })}
         </Grid>
 
         <Card>
+          {loading && <LinearProgress />}
+
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ p: 2.5 }}>
             <TextField
               select
               label="Service Category"
               value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              sx={{ minWidth: 160 }}
+              onChange={(e) => {
+                setFilterCategory(e.target.value);
+                setPage(0);
+              }}
+              sx={{ minWidth: 200 }}
             >
               {CATEGORY_OPTIONS.map((option) => (
-                <MenuItem key={option} value={option}>
-                  {option}
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
                 </MenuItem>
               ))}
             </TextField>
 
             <TransactionTableToolbar
               filterName={filterName}
-              onFilterName={(e: { target: { value: SetStateAction<string> } }) =>
-                setFilterName(e.target.value)
-              }
+              onFilterName={(e) => {
+                setFilterName(e.target.value);
+                setPage(0);
+              }}
               startDate={''}
               endDate={''}
-              onChangeStartDate={function (_event: React.ChangeEvent<HTMLInputElement>): void {
-                throw new Error('Function not implemented.');
-              }}
-              onChangeEndDate={function (event: React.ChangeEvent<HTMLInputElement>): void {
-                throw new Error('Function not implemented.');
-              }}
+              onChangeStartDate={() => {}}
+              onChangeEndDate={() => {}}
             />
 
             <Button
@@ -271,7 +239,7 @@ export default function BillsHistoryPage() {
               color="info"
               startIcon={<Iconify icon="solar:file-download-bold-duotone" />}
               onClick={handleExportXLS}
-              sx={{ height: 56 }}
+              sx={{ height: 56, px: 3 }}
             >
               Export
             </Button>
@@ -287,56 +255,72 @@ export default function BillsHistoryPage() {
                   onSort={onSort}
                 />
                 <TableBody>
-                  {dataFiltered
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((row) => (
-                      <TableRow
-                        hover
-                        key={row.id}
-                        onClick={() => handleOpenDetails(row)}
-                        sx={{ cursor: 'pointer' }}
-                      >
-                        <TableCell>{fDate(row.date)}</TableCell>
-                        <TableCell>
-                          <Typography variant="subtitle2">{row.company}</Typography>
-                          <Typography
-                            variant="caption"
-                            sx={{ color: 'primary.main', fontWeight: 'bold' }}
-                          >
-                            {row.category}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{row.beneficiary}</TableCell>
-                        <TableCell sx={{ color: 'text.secondary' }}>{row.plan}</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>
-                          {fCurrency(row.amount, 'NGN')}
-                        </TableCell>
-                        <TableCell align="right">
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            color="primary"
-                            startIcon={<Iconify icon="solar:printer-minimalistic-bold" />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handlePrintReceipt(row);
-                            }}
-                          >
-                            Receipt
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  <TableNoData isNotFound={!dataFiltered.length} />
+                  {bills.map((row: any) => (
+                    <TableRow
+                      hover
+                      key={row.id}
+                      onClick={() => handleOpenDetails(row)}
+                      sx={{ cursor: 'pointer' }}
+                    >
+                      <TableCell>{fDate(row.created_at)}</TableCell>
+                      <TableCell>
+                        <Typography variant="subtitle2" sx={{ textTransform: 'capitalize' }}>
+                          {row.type}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {row.plan || 'Standard'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{row.beneficiary}</TableCell>
+                      <TableCell sx={{ textTransform: 'uppercase' }}>{row.network}</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>
+                        {fCurrency(row.amount, 'NGN')}
+                      </TableCell>
+                      <TableCell>
+                        <Box
+                          sx={{
+                            px: 1,
+                            py: 0.5,
+                            borderRadius: 0.5,
+                            display: 'inline-flex',
+                            typography: 'caption',
+                            fontWeight: 'bold',
+                            bgcolor:
+                              row.status === 'delivered'
+                                ? alpha('#22C55E', 0.16)
+                                : alpha('#FFAB00', 0.16),
+                            color: row.status === 'delivered' ? '#118D57' : '#B76E00',
+                          }}
+                        >
+                          {row.status.toUpperCase()}
+                        </Box>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<Iconify icon="solar:printer-minimalistic-bold" />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePrintReceipt(row);
+                          }}
+                        >
+                          Receipt
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableNoData isNotFound={!loading && !bills.length} />
                 </TableBody>
               </Table>
             </Scrollbar>
           </TableContainer>
+
           <TablePaginationCustom
-            count={dataFiltered.length}
+            count={totalItems}
             page={page}
             rowsPerPage={rowsPerPage}
-            onPageChange={onChangePage}
+            onPageChange={(e, p) => setPage(p)}
             onRowsPerPageChange={onChangeRowsPerPage}
           />
         </Card>
@@ -354,6 +338,7 @@ export default function BillsHistoryPage() {
             bgcolor: 'background.paper',
             borderRadius: 2,
             p: 4,
+            boxShadow: 24,
           }}
         >
           <Typography variant="h5" sx={{ mb: 3 }}>
@@ -362,7 +347,10 @@ export default function BillsHistoryPage() {
           <Grid container spacing={2}>
             {BILL_SERVICES.map((s) => (
               <Grid item xs={6} sm={3} key={s.title}>
-                <Card variant="outlined" sx={{ '&:hover': { borderColor: 'primary.main' } }}>
+                <Card
+                  variant="outlined"
+                  sx={{ '&:hover': { borderColor: 'primary.main', bgcolor: alpha(s.color, 0.04) } }}
+                >
                   <CardActionArea
                     onClick={() => push(`/dashboard/bills/${s.path}`)}
                     sx={{ p: 3, textAlign: 'center' }}
@@ -389,45 +377,75 @@ export default function BillsHistoryPage() {
             <Typography variant="h6" sx={{ mb: 3 }}>
               Transaction Details
             </Typography>
-            <Stack spacing={2}>
+            <Stack spacing={2.5}>
               <Box
-                sx={{ p: 2, bgcolor: 'background.neutral', borderRadius: 1, textAlign: 'center' }}
+                sx={{ p: 2, bgcolor: 'background.neutral', borderRadius: 1.5, textAlign: 'center' }}
               >
                 <Typography variant="h4">{fCurrency(selectedBill.amount, 'NGN')}</Typography>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  STATUS: {selectedBill.status.toUpperCase()}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 'bold',
+                    color: selectedBill.status === 'delivered' ? 'success.main' : 'warning.main',
+                  }}
+                >
+                  {selectedBill.status.toUpperCase()}
                 </Typography>
               </Box>
-              <DetailItem label="Reference" value={selectedBill.ref} />
-              <DetailItem label="Service" value={selectedBill.category} />
-              <DetailItem label="Provider" value={selectedBill.company} />
-              <DetailItem label="Recipient" value={selectedBill.beneficiary} />
+
+              <DetailItem label="Reference ID" value={selectedBill.transaction_id} />
+              <DetailItem label="Date" value={fDateTime(selectedBill.created_at)} />
+              <DetailItem label="Service" value={selectedBill.type.toUpperCase()} />
+              <DetailItem label="Provider" value={selectedBill.network.toUpperCase()} />
+              <DetailItem label="Beneficiary" value={selectedBill.beneficiary} />
+
+              {selectedBill.val_1 && (
+                <Box
+                  sx={{
+                    p: 1.5,
+                    bgcolor: 'primary.lighter',
+                    borderRadius: 1,
+                    color: 'primary.darker',
+                  }}
+                >
+                  <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block' }}>
+                    SUPPLEMENTARY INFO
+                  </Typography>
+                  <Typography variant="body2">{selectedBill.val_1}</Typography>
+                </Box>
+              )}
+
               <Divider sx={{ borderStyle: 'dashed' }} />
+
               <Button
                 fullWidth
                 variant="contained"
+                size="large"
                 startIcon={<Iconify icon="solar:printer-minimalistic-bold" />}
                 onClick={() => setOpenReceipt(true)}
               >
-                Print Receipt
+                Generate Receipt
               </Button>
             </Stack>
           </Box>
         )}
       </Drawer>
 
-      {/* EXTERNAL COMPONENT: TRANSACTION RECEIPT */}
+      {/* RECEIPT COMPONENT */}
       {selectedBill && (
         <TransactionReceipt
           open={openReceipt}
           onClose={() => setOpenReceipt(false)}
           transaction={{
-            type: selectedBill.category,
-            amount: selectedBill.amount,
+            type: (selectedBill.type.charAt(0).toUpperCase() + selectedBill.type.slice(1)) as any,
+            amount: Number(selectedBill.amount),
             beneficiary: selectedBill.beneficiary,
-            provider: selectedBill.company,
-            reference: selectedBill.ref,
-            date: selectedBill.date,
+            provider: selectedBill.network.toUpperCase(),
+            reference: selectedBill.transaction_id,
+            date: selectedBill.created_at,
+            token: selectedBill.val_1?.includes('Token')
+              ? selectedBill.val_1.split(': ')[1]
+              : undefined,
           }}
         />
       )}
@@ -441,7 +459,9 @@ function DetailItem({ label, value }: { label: string; value: string }) {
       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
         {label}
       </Typography>
-      <Typography variant="subtitle2">{value}</Typography>
+      <Typography variant="subtitle2" sx={{ textAlign: 'right', pl: 2 }}>
+        {value}
+      </Typography>
     </Stack>
   );
 }

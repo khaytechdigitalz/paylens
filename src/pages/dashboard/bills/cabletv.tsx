@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable no-nested-ternary */
 /* eslint-disable no-alert */
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 // @mui
 import {
@@ -16,9 +16,12 @@ import {
   CircularProgress,
   Alert,
   Divider,
+  CardActionArea,
+  Avatar,
   MenuItem,
   Paper,
-  Collapse,
+  Dialog,
+  DialogContent,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 // layouts
@@ -28,27 +31,7 @@ import Iconify from '../../../components/iconify';
 import { useSettingsContext } from '../../../components/settings';
 // utils
 import { fCurrency } from '../../../utils/formatNumber';
-
-// ----------------------------------------------------------------------
-
-const PROVIDERS = [
-  { value: 'dstv', label: 'DSTV', icon: 'logos:dstv-icon', color: '#00AEEF' },
-  { value: 'gotv', label: 'GOTV', icon: 'logos:gotv', color: '#E31E24' },
-  { value: 'startimes', label: 'StarTimes', icon: 'logos:startimes-icon', color: '#FFD100' },
-];
-
-const PACKAGES: Record<string, { id: string; label: string; price: number }[]> = {
-  dstv: [
-    { id: 'd1', label: 'DSTV Premium', price: 29500 },
-    { id: 'd2', label: 'DSTV Compact Plus', price: 19800 },
-    { id: 'd3', label: 'DSTV Confam', price: 7400 },
-  ],
-  gotv: [
-    { id: 'g1', label: 'GOTV Supa+', price: 12500 },
-    { id: 'g2', label: 'GOTV Max', price: 5700 },
-    { id: 'g3', label: 'GOTV Jinja', price: 2700 },
-  ],
-};
+import axios from '../../../utils/axios';
 
 // ----------------------------------------------------------------------
 
@@ -58,234 +41,370 @@ export default function CableTVPage() {
   const theme = useTheme();
   const { themeStretch } = useSettingsContext();
 
+  // Data States
+  const [providers, setProviders] = useState<any[]>([]);
+  const [plans, setPlans] = useState<any[]>([]);
+
+  // UI States
   const [loading, setLoading] = useState(false);
-  const [validating, setValidating] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [customerName, setCustomerName] = useState('');
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [step, setStep] = useState<'input' | 'auth'>('input');
 
-  const [form, setForm] = useState({ provider: '', iucNumber: '', packageId: '', pin: '' });
+  // Verification States
+  const [verifiedName, setVerifiedName] = useState<string | null>(null);
+  const [authType, setAuthType] = useState<'pin' | 'otp' | null>(null);
+  const [authMessage, setAuthMessage] = useState('');
 
-  const availablePackages = useMemo(
-    () => (form.provider ? PACKAGES[form.provider] || [] : []),
-    [form.provider]
-  );
-  const selectedPackage = useMemo(
-    () => availablePackages.find((p) => p.id === form.packageId),
-    [availablePackages, form.packageId]
-  );
+  // Feedback States
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // SIMULATE ACCOUNT VALIDATION
-  const handleValidateIUC = async () => {
-    if (form.iucNumber.length < 10) return;
-    setValidating(true);
-    setCustomerName('');
+  // Form State
+  const [form, setForm] = useState({ decoder: '', customer: '', plan: '', pin: '' });
+  const [result, setResult] = useState<any>(null);
 
-    // Simulate API lookup
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setCustomerName('EMMANUEL OLUWASEUN ADEBAYO');
-    setValidating(false);
+  // 1. Fetch Providers
+  const fetchProviders = useCallback(async () => {
+    try {
+      const response = await axios.get('/bills/cabletv/providers');
+      setProviders(response.data.data);
+    } catch (error) {
+      setErrorMessage('Failed to load Cable TV providers.');
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProviders();
+  }, [fetchProviders]);
+
+  // 2. Fetch Plans when Decoder changes
+  useEffect(() => {
+    if (form.decoder) {
+      const fetchPlans = async () => {
+        setPlansLoading(true);
+        setVerifiedName(null); // Reset verification if provider changes
+        try {
+          const response = await axios.post('/bills/cabletv/plans', { decoder: form.decoder });
+          setPlans(response.data.data);
+        } catch (error) {
+          setErrorMessage('Could not load plans for this provider.');
+        } finally {
+          setPlansLoading(false);
+        }
+      };
+      fetchPlans();
+    }
+  }, [form.decoder]);
+
+  // 3. Verify Customer
+  const handleVerifyCustomer = async () => {
+    setIsVerifying(true);
+    setErrorMessage(null);
+    try {
+      const response = await axios.post('/bills/cabletv/verify', {
+        decoder: form.decoder,
+        customer: form.customer,
+      });
+      setVerifiedName(response.data.customer);
+    } catch (error: any) {
+      setErrorMessage(
+        error.response?.data?.message || 'Verification failed. Check decoder number.'
+      );
+      setVerifiedName(null);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
-  const handlePaySubscription = async () => {
+  // 4. Auth Check
+  const handleCheckAuth = async () => {
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setSuccess(true);
-    setLoading(false);
+    try {
+      const response = await axios.get('/payouts/check_auth');
+      setAuthType(response.data.status === 'pin_required' ? 'pin' : 'otp');
+      setAuthMessage(response.data.message);
+      setStep('auth');
+    } catch (error: any) {
+      setErrorMessage(error.response?.data?.message || 'Security check failed.');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // 5. Final Purchase
+  const handleFinalPurchase = async () => {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const response = await axios.post('/bills/cabletv/buy', {
+        decoder: form.decoder,
+        customer: form.customer,
+        plan: form.plan,
+        pin: form.pin,
+      });
+      setResult(response.data);
+      setShowSuccess(true);
+    } catch (error: any) {
+      setErrorMessage(error.response?.data?.message || 'Subscription failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectedProvider = providers.find((p) => p.networkid === form.decoder);
+  const currentPlan = plans.find((p) => p.variation_code === form.plan);
 
   return (
     <>
       <Head>
-        <title> Cable TV | PayLens</title>
+        <title>Cable TV Subscription | PayLens</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'lg'}>
-        <Box sx={{ mb: 5 }}>
-          <Typography variant="h3" sx={{ mb: 1 }}>
-            Cable TV
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Renew your TV subscription instantly.
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h3">Cable TV</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Renew your DSTV, GOtv, or StarTimes instantly.
           </Typography>
         </Box>
 
+        {errorMessage && (
+          <Alert severity="error" sx={{ mb: 4 }} onClose={() => setErrorMessage(null)}>
+            {errorMessage}
+          </Alert>
+        )}
+
         <Grid container spacing={4}>
           <Grid item xs={12} md={7}>
-            <Stack spacing={4}>
-              {/* 1. Provider Picker */}
-              <Box>
-                <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                  Choose Provider
+            <Stack spacing={3}>
+              {/* Provider Selection */}
+              <Card sx={{ p: 3 }}>
+                <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                  1. Choose Provider
                 </Typography>
                 <Grid container spacing={2}>
-                  {PROVIDERS.map((item) => (
-                    <Grid item xs={4} key={item.value}>
-                      <Paper
-                        variant="outlined"
-                        onClick={() =>
-                          setForm({ ...form, provider: item.value, packageId: '', iucNumber: '' })
-                        }
+                  {providers.map((p) => (
+                    <Grid item xs={6} sm={4} key={p.networkid}>
+                      <CardActionArea
+                        onClick={() => setForm({ ...form, decoder: p.networkid, plan: '' })}
                         sx={{
                           p: 2,
+                          borderRadius: 1.5,
                           textAlign: 'center',
-                          cursor: 'pointer',
-                          transition: '0.3s',
-                          borderColor: form.provider === item.value ? item.color : 'divider',
+                          border: `2px solid ${
+                            form.decoder === p.networkid
+                              ? theme.palette.primary.main
+                              : alpha(theme.palette.divider, 0.1)
+                          }`,
                           bgcolor:
-                            form.provider === item.value ? alpha(item.color, 0.05) : 'transparent',
-                          borderWidth: form.provider === item.value ? 2 : 1,
+                            form.decoder === p.networkid
+                              ? alpha(theme.palette.primary.main, 0.05)
+                              : 'transparent',
                         }}
                       >
-                        <Iconify icon={item.icon} width={40} height={40} />
-                        <Typography
-                          variant="caption"
-                          sx={{ display: 'block', mt: 1, fontWeight: 'bold' }}
-                        >
-                          {item.label}
-                        </Typography>
-                      </Paper>
+                        <Avatar src={p.logo} sx={{ width: 56, height: 56, mx: 'auto', mb: 1 }} />
+                        <Typography variant="subtitle2">{p.name}</Typography>
+                      </CardActionArea>
                     </Grid>
                   ))}
                 </Grid>
-              </Box>
+              </Card>
 
-              {/* 2. Account Validation */}
+              {/* Input Section */}
               <Card sx={{ p: 3 }}>
+                <Typography variant="subtitle2" sx={{ mb: 3 }}>
+                  2. Plan & Decoder Details
+                </Typography>
                 <Stack spacing={3}>
-                  <TextField
-                    fullWidth
-                    label="SmartCard / IUC Number"
-                    placeholder="Enter 10-11 digit number"
-                    value={form.iucNumber}
-                    disabled={!form.provider}
-                    onChange={(e) => {
-                      setForm({ ...form, iucNumber: e.target.value });
-                      setCustomerName('');
-                    }}
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <Button
-                            size="small"
-                            variant="soft"
-                            onClick={handleValidateIUC}
-                            disabled={!form.iucNumber || validating}
-                          >
-                            {validating ? <CircularProgress size={16} /> : 'Verify'}
-                          </Button>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-
-                  <Collapse in={!!customerName}>
-                    <Alert
-                      icon={<Iconify icon="solar:user-check-bold" />}
-                      severity="success"
-                      sx={{ mb: 1 }}
-                    >
-                      Customer: <strong>{customerName}</strong>
-                    </Alert>
-                  </Collapse>
-
                   <TextField
                     select
                     fullWidth
-                    label="Select Package"
-                    value={form.packageId}
-                    disabled={!customerName}
-                    onChange={(e) => setForm({ ...form, packageId: e.target.value })}
+                    label="Select Plan"
+                    value={form.plan}
+                    onChange={(e) => setForm({ ...form, plan: e.target.value })}
+                    disabled={!form.decoder || plansLoading}
                   >
-                    {availablePackages.map((pkg) => (
-                      <MenuItem key={pkg.id} value={pkg.id}>
-                        <Stack
-                          direction="row"
-                          justifyContent="space-between"
-                          sx={{ width: '100%' }}
+                    {plans.map((plan) => (
+                      <MenuItem key={plan.variation_code} value={plan.variation_code}>
+                        <Box
+                          sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}
                         >
-                          <Typography variant="body2">{pkg.label}</Typography>
-                          <Typography variant="subtitle2">{fCurrency(pkg.price, 'NGN')}</Typography>
-                        </Stack>
+                          <Typography variant="body2">{plan.name}</Typography>
+                          <Typography variant="subtitle2" color="primary">
+                            ₦{plan.variation_amount}
+                          </Typography>
+                        </Box>
                       </MenuItem>
                     ))}
                   </TextField>
 
-                  <TextField
-                    fullWidth
-                    type="password"
-                    label="Transaction PIN"
-                    value={form.pin}
-                    disabled={!form.packageId}
-                    onChange={(e) => setForm({ ...form, pin: e.target.value })}
-                    inputProps={{
-                      maxLength: 4,
-                      style: { textAlign: 'center', letterSpacing: '10px' },
-                    }}
-                  />
+                  <Box>
+                    <TextField
+                      fullWidth
+                      label="Smart Card / IUC Number"
+                      value={form.customer}
+                      onChange={(e) => {
+                        setForm({ ...form, customer: e.target.value });
+                        setVerifiedName(null);
+                      }}
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <Button
+                              variant="soft"
+                              color="info"
+                              size="small"
+                              onClick={handleVerifyCustomer}
+                              disabled={!form.decoder || !form.customer || isVerifying}
+                            >
+                              {isVerifying ? <CircularProgress size={20} /> : 'Verify'}
+                            </Button>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                    {verifiedName && (
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          mt: 1,
+                          color: 'success.main',
+                          fontWeight: 'bold',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                        }}
+                      >
+                        <Iconify icon="solar:user-check-bold" width={16} /> Verified User:{' '}
+                        {verifiedName}
+                      </Typography>
+                    )}
+                  </Box>
+
+                  {step === 'auth' && (
+                    <Paper
+                      variant="outlined"
+                      sx={{ p: 3, bgcolor: 'background.neutral', borderStyle: 'dashed' }}
+                    >
+                      <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                        {authMessage}
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        autoFocus
+                        type={authType === 'pin' ? 'password' : 'text'}
+                        label={authType === 'pin' ? 'PIN' : 'OTP Code'}
+                        value={form.pin}
+                        onChange={(e) => setForm({ ...form, pin: e.target.value })}
+                        inputProps={{
+                          maxLength: authType === 'pin' ? 4 : 6,
+                          style: { textAlign: 'center', letterSpacing: 8, fontWeight: 'bold' },
+                        }}
+                      />
+                    </Paper>
+                  )}
                 </Stack>
               </Card>
             </Stack>
           </Grid>
 
-          {/* RIGHT: CHECKOUT */}
+          {/* Preview Sidebar */}
           <Grid item xs={12} md={5}>
             <Card sx={{ p: 4, position: 'sticky', top: 100 }}>
-              <Stack spacing={3}>
-                <Typography variant="h6">Subscription Summary</Typography>
+              <Typography variant="h6" sx={{ mb: 3 }}>
+                Preview
+              </Typography>
+              <Stack spacing={2.5}>
+                <PreviewRow label="Provider" value={selectedProvider?.name || '---'} />
+                <PreviewRow label="SmartCard" value={form.customer || '---'} />
+                <PreviewRow label="Owner" value={verifiedName || '---'} />
+                <PreviewRow label="Package" value={currentPlan?.name || '---'} />
 
-                <Stack spacing={2}>
-                  <SummaryRow label="Provider" value={form.provider.toUpperCase() || '---'} />
-                  <SummaryRow label="Account Name" value={customerName || '---'} />
-                  <SummaryRow label="Package" value={selectedPackage?.label || '---'} />
+                <Divider sx={{ borderStyle: 'dashed' }} />
 
-                  <Divider sx={{ borderStyle: 'dashed' }} />
-
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography variant="subtitle1">Total Payable</Typography>
-                    <Typography variant="h4" color="primary">
-                      {fCurrency(selectedPackage?.price || 0, 'NGN')}
-                    </Typography>
-                  </Stack>
-
-                  <Button
-                    fullWidth
-                    size="large"
-                    variant="contained"
-                    disabled={!form.pin || loading}
-                    onClick={handlePaySubscription}
-                  >
-                    {loading ? <CircularProgress size={24} color="inherit" /> : 'Pay Subscription'}
-                  </Button>
-
-                  {success && (
-                    <Stack spacing={2}>
-                      <Alert severity="success">Subscription successful!</Alert>
-                      <Button
-                        fullWidth
-                        variant="outlined"
-                        startIcon={<Iconify icon="solar:printer-minimalistic-bold" />}
-                      >
-                        Download Receipt
-                      </Button>
-                    </Stack>
-                  )}
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="subtitle1">Amount Due</Typography>
+                  <Typography variant="h4" color="primary">
+                    {fCurrency(currentPlan?.variation_amount || 0, 'NGN')}
+                  </Typography>
                 </Stack>
+
+                <Button
+                  fullWidth
+                  size="large"
+                  variant="contained"
+                  disabled={!form.plan || !verifiedName || loading}
+                  onClick={step === 'input' ? handleCheckAuth : handleFinalPurchase}
+                >
+                  {loading ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : step === 'input' ? (
+                    'Proceed'
+                  ) : (
+                    'Buy Plan'
+                  )}
+                </Button>
               </Stack>
             </Card>
           </Grid>
         </Grid>
       </Container>
+
+      {/* Success Modal */}
+      <Dialog open={showSuccess} onClose={() => setShowSuccess(false)} fullWidth maxWidth="xs">
+        <DialogContent sx={{ textAlign: 'center', py: 6 }}>
+          <Iconify icon="solar:check-circle-bold" width={72} color="success.main" sx={{ mb: 2 }} />
+          <Typography variant="h4" gutterBottom>
+            Subscription Active!
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+            {result?.message}
+          </Typography>
+
+          <Paper variant="outlined" sx={{ p: 2, mb: 4, bgcolor: 'background.neutral' }}>
+            <Stack spacing={1.5}>
+              <Stack direction="row" justifyContent="space-between">
+                <Typography variant="caption">Total Charged</Typography>
+                <Typography variant="subtitle2">
+                  {fCurrency(result?.data?.total || 0, 'NGN')}
+                </Typography>
+              </Stack>
+              <Divider />
+              <Stack direction="row" justifyContent="space-between">
+                <Typography variant="caption">Reference</Typography>
+                <Typography variant="subtitle2" sx={{ fontSize: 11 }}>
+                  {result?.payout_ref}
+                </Typography>
+              </Stack>
+              <Divider />
+              <Stack direction="row" justifyContent="space-between">
+                <Typography variant="caption">New Balance</Typography>
+                <Typography variant="h6" color="primary">
+                  {fCurrency(result?.data?.balance_after || 0, 'NGN')}
+                </Typography>
+              </Stack>
+            </Stack>
+          </Paper>
+
+          <Button fullWidth variant="contained" onClick={() => window.location.reload()}>
+            Finish
+          </Button>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
+function PreviewRow({ label, value }: { label: string; value: string }) {
   return (
     <Stack direction="row" justifyContent="space-between">
-      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+      <Typography variant="body2" color="text.secondary">
         {label}
       </Typography>
-      <Typography variant="subtitle2">{value}</Typography>
+      <Typography variant="subtitle2" sx={{ textAlign: 'right', pl: 2 }}>
+        {value}
+      </Typography>
     </Stack>
   );
 }

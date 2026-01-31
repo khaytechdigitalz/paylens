@@ -1,5 +1,6 @@
+/* eslint-disable no-nested-ternary */
 /* eslint-disable no-alert */
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 // @mui
 import {
@@ -15,10 +16,13 @@ import {
   CircularProgress,
   Alert,
   Divider,
+  CardActionArea,
+  Avatar,
+  Paper,
+  Dialog,
+  DialogContent,
   ToggleButton,
   ToggleButtonGroup,
-  Collapse,
-  Paper,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 // layouts
@@ -28,17 +32,7 @@ import Iconify from '../../../components/iconify';
 import { useSettingsContext } from '../../../components/settings';
 // utils
 import { fCurrency } from '../../../utils/formatNumber';
-
-// ----------------------------------------------------------------------
-
-const DISCOS = [
-  { value: 'ikeja', label: 'Ikeja Electric', icon: 'solar:bolt-bold', color: '#ED1C24' },
-  { value: 'eko', label: 'Eko Electric', icon: 'solar:bolt-bold', color: '#00A859' },
-  { value: 'abuja', label: 'Abuja Electric', icon: 'solar:bolt-bold', color: '#2E3192' },
-  { value: 'kano', label: 'Kano Electric', icon: 'solar:bolt-bold', color: '#F7941D' },
-  { value: 'portharcourt', label: 'PHED', icon: 'solar:bolt-bold', color: '#0071BC' },
-  { value: 'ibadan', label: 'IBEDC', icon: 'solar:bolt-bold', color: '#662D91' },
-];
+import axios from '../../../utils/axios';
 
 // ----------------------------------------------------------------------
 
@@ -48,112 +42,202 @@ export default function ElectricityPage() {
   const theme = useTheme();
   const { themeStretch } = useSettingsContext();
 
-  const [loading, setLoading] = useState(false);
-  const [validating, setValidating] = useState(false);
-  const [success, setSuccess] = useState(false);
+  // Data States
+  const [providers, setProviders] = useState<any[]>([]);
 
-  const [customerData, setCustomerData] = useState<{ name: string; address: string } | null>(null);
+  // UI States
+  const [loading, setLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [step, setStep] = useState<'input' | 'auth'>('input');
+
+  // Verification States
+  const [verifiedName, setVerifiedName] = useState<string | null>(null);
+  const [authType, setAuthType] = useState<'pin' | 'otp' | null>(null);
+  const [authMessage, setAuthMessage] = useState('');
+
+  // Feedback States
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Form State
   const [form, setForm] = useState({
-    disco: '',
-    meterType: 'prepaid',
-    meterNumber: '',
+    meter: '',
+    type: 'prepaid',
+    customer: '',
     amount: '',
     pin: '',
   });
+  const [result, setResult] = useState<any>(null);
 
-  const handleValidateMeter = async () => {
-    if (form.meterNumber.length < 10) return;
-    setValidating(true);
-    setCustomerData(null);
+  // 1. Fetch Electricity Providers (Discos)
+  const fetchProviders = useCallback(async () => {
+    try {
+      const response = await axios.get('/bills/electricity/providers');
+      setProviders(response.data.data);
+    } catch (error) {
+      setErrorMessage('Failed to load electricity providers.');
+    }
+  }, []);
 
-    // Simulate API lookup for Meter details
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setCustomerData({
-      name: 'CHUKWUDI JOHNATHAN OBINNA',
-      address: '14b Admiralty Way, Lekki Phase 1, Lagos',
-    });
-    setValidating(false);
+  useEffect(() => {
+    fetchProviders();
+  }, [fetchProviders]);
+
+  // 2. Verify Meter Number
+  const handleVerifyCustomer = async () => {
+    setIsVerifying(true);
+    setErrorMessage(null);
+    try {
+      const response = await axios.post('/bills/electricity/verify', {
+        meter: form.meter,
+        type: form.type,
+        customer: form.customer,
+      });
+      setVerifiedName(response.data.customer);
+    } catch (error: any) {
+      setErrorMessage(
+        error.response?.data?.message || 'Meter verification failed. Please check the number.'
+      );
+      setVerifiedName(null);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
-  const handlePayBill = async () => {
+  // 3. Security Auth Check
+  const handleCheckAuth = async () => {
     setLoading(true);
-    // Simulate API Payment & Token Generation
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setSuccess(true);
-    setLoading(false);
+    try {
+      const response = await axios.get('/payouts/check_auth');
+      setAuthType(response.data.status === 'pin_required' ? 'pin' : 'otp');
+      setAuthMessage(response.data.message);
+      setStep('auth');
+    } catch (error: any) {
+      setErrorMessage(error.response?.data?.message || 'Security verification failed.');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // 4. Final Process Purchase
+  const handleFinalPurchase = async () => {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const response = await axios.post('/bills/electricity/buy', {
+        meter: form.meter,
+        customer: form.customer,
+        amount: form.amount,
+        type: form.type,
+        pin: form.pin,
+      });
+      setResult(response.data);
+      setShowSuccess(true);
+    } catch (error: any) {
+      setErrorMessage(error.response?.data?.message || 'Transaction could not be completed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectedDisco = providers.find((p) => p.networkid === form.meter);
 
   return (
     <>
       <Head>
-        <title> Electricity Bill | PayLens</title>
+        <title>Electricity Bills | PayLens</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'lg'}>
-        <Box sx={{ mb: 5 }}>
-          <Typography variant="h3" sx={{ mb: 1 }}>
-            Electricity Bill
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Pay for your prepaid or postpaid meter instantly.
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h3">Electricity Bill</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Pay your Disco bills and get tokens instantly.
           </Typography>
         </Box>
 
+        {errorMessage && (
+          <Alert
+            severity="error"
+            variant="filled"
+            sx={{ mb: 4 }}
+            onClose={() => setErrorMessage(null)}
+          >
+            {errorMessage}
+          </Alert>
+        )}
+
         <Grid container spacing={4}>
           <Grid item xs={12} md={7}>
-            <Stack spacing={4}>
-              {/* 1. DISCO Selection */}
-              <Box>
-                <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                  Select Distribution Company (DISCO)
+            <Stack spacing={3}>
+              {/* Step 1: Provider Selection */}
+              <Card sx={{ p: 3 }}>
+                <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                  1. Select Distribution Company (Disco)
                 </Typography>
                 <Grid container spacing={2}>
-                  {DISCOS.map((disco) => (
-                    <Grid item xs={6} sm={4} key={disco.value}>
-                      <Paper
-                        variant="outlined"
+                  {providers.map((p) => (
+                    <Grid item xs={6} sm={4} key={p.networkid}>
+                      <CardActionArea
                         onClick={() => {
-                          setForm({ ...form, disco: disco.value });
-                          setCustomerData(null);
+                          setForm({ ...form, meter: p.networkid });
+                          setVerifiedName(null);
                         }}
                         sx={{
                           p: 2,
+                          borderRadius: 1.5,
                           textAlign: 'center',
-                          cursor: 'pointer',
-                          transition: '0.3s',
-                          borderColor: form.disco === disco.value ? disco.color : 'divider',
+                          border: `2px solid ${
+                            form.meter === p.networkid
+                              ? theme.palette.primary.main
+                              : alpha(theme.palette.divider, 0.1)
+                          }`,
                           bgcolor:
-                            form.disco === disco.value ? alpha(disco.color, 0.05) : 'transparent',
-                          borderWidth: form.disco === disco.value ? 2 : 1,
+                            form.meter === p.networkid
+                              ? alpha(theme.palette.primary.main, 0.05)
+                              : 'transparent',
                         }}
                       >
-                        <Iconify icon={disco.icon} width={32} sx={{ color: disco.color, mb: 1 }} />
-                        <Typography variant="caption" sx={{ display: 'block', fontWeight: 'bold' }}>
-                          {disco.label}
+                        <Avatar
+                          src={p.logo}
+                          sx={{
+                            width: 56,
+                            height: 56,
+                            mx: 'auto',
+                            mb: 1,
+                            border: `1px solid ${theme.palette.divider}`,
+                          }}
+                        />
+                        <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
+                          {p.name}
                         </Typography>
-                      </Paper>
+                      </CardActionArea>
                     </Grid>
                   ))}
                 </Grid>
-              </Box>
+              </Card>
 
-              {/* 2. Meter Details */}
+              {/* Step 2: Meter Details */}
               <Card sx={{ p: 3 }}>
+                <Typography variant="subtitle2" sx={{ mb: 3 }}>
+                  2. Meter Details & Amount
+                </Typography>
                 <Stack spacing={3}>
                   <Box>
                     <Typography
                       variant="caption"
-                      sx={{ color: 'text.secondary', fontWeight: 'bold', mb: 1, display: 'block' }}
+                      sx={{ color: 'text.secondary', mb: 1, display: 'block' }}
                     >
-                      METER TYPE
+                      Meter Type
                     </Typography>
                     <ToggleButtonGroup
                       fullWidth
-                      value={form.meterType}
+                      value={form.type}
                       exclusive
-                      onChange={(e, val) => val && setForm({ ...form, meterType: val })}
-                      size="small"
-                      color="primary"
+                      onChange={(e, val) => {
+                        if (val) setForm({ ...form, type: val });
+                        setVerifiedName(null);
+                      }}
                     >
                       <ToggleButton value="prepaid">Prepaid</ToggleButton>
                       <ToggleButton value="postpaid">Postpaid</ToggleButton>
@@ -163,108 +247,93 @@ export default function ElectricityPage() {
                   <TextField
                     fullWidth
                     label="Meter Number"
-                    placeholder="Enter 11-13 digit meter number"
-                    value={form.meterNumber}
-                    disabled={!form.disco}
+                    value={form.customer}
                     onChange={(e) => {
-                      setForm({ ...form, meterNumber: e.target.value });
-                      setCustomerData(null);
+                      setForm({ ...form, customer: e.target.value });
+                      setVerifiedName(null);
                     }}
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
                           <Button
-                            variant="soft"
-                            disabled={!form.meterNumber || validating}
-                            onClick={handleValidateMeter}
+                            variant="contained"
+                            size="small"
+                            onClick={handleVerifyCustomer}
+                            disabled={!form.meter || !form.customer || isVerifying}
                           >
-                            {validating ? <CircularProgress size={16} /> : 'Verify'}
+                            {isVerifying ? (
+                              <CircularProgress size={20} color="inherit" />
+                            ) : (
+                              'Verify'
+                            )}
                           </Button>
                         </InputAdornment>
                       ),
                     }}
                   />
 
-                  <Collapse in={!!customerData}>
-                    {customerData && (
-                      <Alert severity="info" icon={<Iconify icon="solar:map-point-bold" />}>
-                        <Typography variant="subtitle2">{customerData.name}</Typography>
-                        <Typography variant="caption">{customerData.address}</Typography>
-                      </Alert>
-                    )}
-                  </Collapse>
+                  {verifiedName && (
+                    <Alert icon={<Iconify icon="solar:user-check-bold" />} severity="success">
+                      Meter Registered to: <strong>{verifiedName}</strong>
+                    </Alert>
+                  )}
 
                   <TextField
                     fullWidth
-                    label="Amount"
-                    type="number"
+                    label="Amount to Pay"
                     value={form.amount}
-                    disabled={!customerData}
                     onChange={(e) => setForm({ ...form, amount: e.target.value })}
                     InputProps={{
                       startAdornment: <InputAdornment position="start">₦</InputAdornment>,
                     }}
                   />
 
-                  <TextField
-                    fullWidth
-                    type="password"
-                    label="Transaction PIN"
-                    value={form.pin}
-                    disabled={!form.amount}
-                    onChange={(e) => setForm({ ...form, pin: e.target.value })}
-                    inputProps={{
-                      maxLength: 4,
-                      style: { textAlign: 'center', letterSpacing: '10px' },
-                    }}
-                  />
+                  {step === 'auth' && (
+                    <Paper
+                      sx={{
+                        p: 3,
+                        bgcolor: 'background.neutral',
+                        border: `1px dashed ${theme.palette.primary.main}`,
+                      }}
+                    >
+                      <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                        {authMessage}
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        autoFocus
+                        type={authType === 'pin' ? 'password' : 'text'}
+                        label={authType === 'pin' ? 'Transaction PIN' : 'OTP Code'}
+                        value={form.pin}
+                        onChange={(e) => setForm({ ...form, pin: e.target.value })}
+                        inputProps={{
+                          maxLength: authType === 'pin' ? 4 : 6,
+                          style: { textAlign: 'center', letterSpacing: 10, fontWeight: 'bold' },
+                        }}
+                      />
+                    </Paper>
+                  )}
                 </Stack>
               </Card>
             </Stack>
           </Grid>
 
-          {/* RIGHT: SUMMARY */}
+          {/* Review Sidebar */}
           <Grid item xs={12} md={5}>
-            <Card
-              sx={{
-                p: 4,
-                position: 'sticky',
-                top: 100,
-                border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-              }}
-            >
+            <Card sx={{ p: 4, position: 'sticky', top: 100 }}>
               <Typography variant="h6" sx={{ mb: 3 }}>
                 Payment Summary
               </Typography>
-
               <Stack spacing={2.5}>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    Utility
-                  </Typography>
-                  <Typography variant="subtitle2">{form.disco.toUpperCase() || '---'}</Typography>
-                </Stack>
-
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    Meter Type
-                  </Typography>
-                  <Typography variant="subtitle2" sx={{ textTransform: 'capitalize' }}>
-                    {form.meterType}
-                  </Typography>
-                </Stack>
-
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    Meter No.
-                  </Typography>
-                  <Typography variant="subtitle2">{form.meterNumber || '---'}</Typography>
-                </Stack>
+                <ReviewRow label="Disco" value={selectedDisco?.name || '---'} />
+                <ReviewRow label="Meter Type" value={form.type.toUpperCase()} />
+                <ReviewRow label="Meter Number" value={form.customer || '---'} />
+                <ReviewRow label="Customer" value={verifiedName || '---'} />
 
                 <Divider sx={{ borderStyle: 'dashed' }} />
 
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="subtitle1">Amount</Typography>
+                  <Typography variant="subtitle1">Total Amount</Typography>
                   <Typography variant="h4" color="primary">
                     {fCurrency(form.amount || 0, 'NGN')}
                   </Typography>
@@ -274,37 +343,80 @@ export default function ElectricityPage() {
                   fullWidth
                   size="large"
                   variant="contained"
-                  disabled={!form.pin || loading}
-                  onClick={handlePayBill}
-                  sx={{ py: 1.5 }}
+                  disabled={!verifiedName || !form.amount || loading}
+                  onClick={step === 'input' ? handleCheckAuth : handleFinalPurchase}
                 >
-                  {loading ? <CircularProgress size={24} color="inherit" /> : 'Confirm Payment'}
+                  {loading ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : step === 'input' ? (
+                    'Proceed'
+                  ) : (
+                    'Purchase Token'
+                  )}
                 </Button>
-
-                {success && (
-                  <Stack spacing={2} sx={{ mt: 2 }}>
-                    <Alert severity="success">Payment Successful!</Alert>
-                    <Paper
-                      variant="outlined"
-                      sx={{ p: 2, textAlign: 'center', bgcolor: 'background.neutral' }}
-                    >
-                      <Typography variant="overline" color="text.secondary">
-                        Your Prepaid Token
-                      </Typography>
-                      <Typography variant="h4" sx={{ letterSpacing: 4, my: 1 }}>
-                        4492-1102-8831-0021
-                      </Typography>
-                      <Button size="small" startIcon={<Iconify icon="solar:copy-bold" />}>
-                        Copy Token
-                      </Button>
-                    </Paper>
-                  </Stack>
-                )}
               </Stack>
             </Card>
           </Grid>
         </Grid>
       </Container>
+
+      {/* Success Modal */}
+      <Dialog open={showSuccess} onClose={() => setShowSuccess(false)} fullWidth maxWidth="xs">
+        <DialogContent sx={{ textAlign: 'center', py: 6 }}>
+          <Iconify icon="solar:bolt-circle-bold" width={72} color="warning.main" sx={{ mb: 2 }} />
+          <Typography variant="h4">Payment Successful</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            {result?.message}
+          </Typography>
+
+          <Paper variant="outlined" sx={{ p: 2, mb: 4, bgcolor: 'background.neutral' }}>
+            <Stack spacing={1.5}>
+              <Stack direction="row" justifyContent="space-between">
+                <Typography variant="caption">Total Paid</Typography>
+                <Typography variant="subtitle2">
+                  {fCurrency(result?.data?.total || 0, 'NGN')}
+                </Typography>
+              </Stack>
+              <Divider />
+              <Stack direction="row" justifyContent="space-between">
+                <Typography variant="caption">Reference</Typography>
+                <Typography variant="subtitle2" sx={{ fontSize: 11 }}>
+                  {result?.payout_ref}
+                </Typography>
+              </Stack>
+              <Divider />
+              <Stack direction="row" justifyContent="space-between">
+                <Typography variant="caption">New Wallet Balance</Typography>
+                <Typography variant="h6" color="primary">
+                  {fCurrency(result?.data?.balance_after || 0, 'NGN')}
+                </Typography>
+              </Stack>
+            </Stack>
+          </Paper>
+
+          <Button
+            fullWidth
+            variant="contained"
+            size="large"
+            onClick={() => window.location.reload()}
+          >
+            Download Receipt
+          </Button>
+        </DialogContent>
+      </Dialog>
     </>
+  );
+}
+
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <Stack direction="row" justifyContent="space-between">
+      <Typography variant="body2" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography variant="subtitle2" sx={{ textAlign: 'right', pl: 2 }}>
+        {value}
+      </Typography>
+    </Stack>
   );
 }

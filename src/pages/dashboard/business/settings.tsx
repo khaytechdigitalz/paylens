@@ -1,6 +1,7 @@
-import { useState } from 'react';
-// next
+/* eslint-disable prefer-destructuring */
+import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
+import { useSnackbar } from 'notistack';
 // @mui
 import {
   Container,
@@ -16,17 +17,25 @@ import {
   Divider,
   InputAdornment,
   Box,
-  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  CircularProgress,
+  Tabs,
+  Tab,
+  alpha,
+  useTheme,
+  CardHeader,
 } from '@mui/material';
+// auth
 // layouts
 import DashboardLayout from '../../../layouts/dashboard';
 // components
 import Iconify from '../../../components/iconify';
 import { useSettingsContext } from '../../../components/settings';
+// utils
+import axios from '../../../utils/axios';
 
 // ----------------------------------------------------------------------
 
@@ -34,299 +43,315 @@ BusinessSettingsPage.getLayout = (page: React.ReactElement) => (
   <DashboardLayout>{page}</DashboardLayout>
 );
 
-// ----------------------------------------------------------------------
-
 export default function BusinessSettingsPage() {
+  const theme = useTheme();
   const { themeStretch } = useSettingsContext();
+  const { enqueueSnackbar } = useSnackbar();
 
-  // Main Business Settings State
-  const [settings, setSettings] = useState({
-    feeBearer: 'merchant',
-    authType: 'otp',
-    enableNotifications: true,
-    autoSettle: false,
-    currency: 'NGN',
-    hasPinSet: false,
+  const [currentTab, setCurrentTab] = useState('NGN');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [form, setForm] = useState({
+    base_currency: 'NGN',
+    fee_bearer: 'merchant',
+    automated_settlement: true,
+    authentication_method: 'pin',
+    pin: '',
+    confirm_pin: '',
+    ngn_single_limit: 0,
+    ngn_daily_limit: 0,
+    usd_single_limit: 0,
+    usd_daily_limit: 0,
+    gbp_single_limit: 0,
+    gbp_daily_limit: 0,
   });
 
-  // Multi-Currency Limits State
-  const [limits, setLimits] = useState<Record<string, { single: number; daily: number }>>({
-    NGN: { single: 500000, daily: 2000000 },
-    USD: { single: 1000, daily: 5000 },
-    GBP: { single: 800, daily: 4000 },
-  });
-
-  // PIN Setup Modal States
   const [openPinModal, setOpenPinModal] = useState(false);
-  const [pinData, setPinData] = useState({ pin: '', confirm: '' });
-  const [pinError, setPinError] = useState('');
 
-  const handleLimitChange = (field: 'single' | 'daily', value: number) => {
-    setLimits((prev) => ({
-      ...prev,
-      [settings.currency]: { ...prev[settings.currency], [field]: value },
-    }));
+  const getBusinessSettings = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('/businesssettings');
+      const data = response.data.data;
+      setForm((prev) => ({
+        ...prev,
+        ...data,
+        automated_settlement: Boolean(data.automated_settlement),
+        ngn_single_limit: Number(data.ngn_single_limit),
+        ngn_daily_limit: Number(data.ngn_daily_limit),
+        usd_single_limit: Number(data.usd_single_limit),
+        usd_daily_limit: Number(data.usd_daily_limit),
+        gbp_single_limit: Number(data.gbp_single_limit),
+        gbp_daily_limit: Number(data.gbp_daily_limit),
+      }));
+    } catch (error) {
+      enqueueSnackbar('Failed to load settings', { variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }, [enqueueSnackbar]);
+
+  useEffect(() => {
+    getBusinessSettings();
+  }, [getBusinessSettings]);
+
+  const handleSubmit = async () => {
+    try {
+      setSubmitting(true);
+      await axios.post('/businesssettings/update', form);
+      enqueueSnackbar('Business configuration updated!', { variant: 'success' });
+    } catch (error) {
+      enqueueSnackbar('Failed to update settings', { variant: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleChange = (field: string, value: any) => {
-    if (field === 'authType' && value === 'pin' && !settings.hasPinSet) {
-      setOpenPinModal(true);
-      return;
-    }
-    setSettings((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSavePin = () => {
-    setPinError('');
-    if (pinData.pin.length !== 4) {
-      setPinError('PIN must be exactly 4 digits');
-      return;
-    }
-    if (pinData.pin !== pinData.confirm) {
-      setPinError('PINs do not match');
-      return;
-    }
-    setSettings((prev) => ({ ...prev, hasPinSet: true, authType: 'pin' }));
-    setPinData({ pin: '', confirm: '' });
-    setOpenPinModal(false);
-  };
-
-  const currentLimit = limits[settings.currency];
+  if (loading)
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
+        <CircularProgress />
+      </Box>
+    );
 
   return (
     <>
       <Head>
-        <title> Business Settings | PayLens</title>
+        <title> Configuration | PayLens</title>
       </Head>
 
-      <Container maxWidth={themeStretch ? false : 'xl'}>
-        <Stack spacing={1} sx={{ mb: 5 }}>
-          <Typography variant="h3">Business Settings</Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Configure financial limits per currency and manage security preferences.
-          </Typography>
+      <Container maxWidth={themeStretch ? false : 'lg'}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 5 }}>
+          <Box>
+            <Typography variant="h3">Settings</Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Control your business transaction limits and preferences.
+            </Typography>
+          </Box>
+          <Button
+            variant="contained"
+            size="large"
+            startIcon={
+              submitting ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : (
+                <Iconify icon="eva:save-fill" />
+              )
+            }
+            onClick={handleSubmit}
+            disabled={submitting}
+            sx={{ boxShadow: theme.customShadows.primary }}
+          >
+            Save Changes
+          </Button>
         </Stack>
 
-        <Grid container spacing={3}>
-          {/* Financial Controls Column */}
-          <Grid item xs={12} md={7}>
-            <Stack spacing={3}>
-              <Card sx={{ p: 3 }}>
-                <Stack
-                  direction="row"
-                  alignItems="center"
-                  justifyContent="space-between"
-                  sx={{ mb: 3 }}
-                >
-                  <Typography variant="h6">Financial Controls</Typography>
-                  <TextField
-                    select
-                    size="small"
-                    label="Currency"
-                    value={settings.currency}
-                    onChange={(e) => handleChange('currency', e.target.value)}
-                    sx={{ width: 120 }}
-                  >
-                    {['NGN', 'USD', 'GBP'].map((option) => (
-                      <MenuItem key={option} value={option}>
-                        {option}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Stack>
+        <Grid container spacing={4}>
+          {/* Left Column: Limits & Core Settings */}
+          <Grid item xs={12} md={8}>
+            <Card sx={{ mb: 4, overflow: 'hidden' }}>
+              <CardHeader
+                title="Transaction Limits"
+                subheader="Set maximum amounts for different currencies"
+                sx={{ bgcolor: alpha(theme.palette.primary.main, 0.03) }}
+              />
+              <Divider />
+              <Tabs
+                value={currentTab}
+                onChange={(e, v) => setCurrentTab(v)}
+                sx={{ px: 3, bgcolor: alpha(theme.palette.primary.main, 0.03) }}
+              >
+                {['NGN', 'USD', 'GBP'].map((tab) => (
+                  <Tab key={tab} label={tab} value={tab} />
+                ))}
+              </Tabs>
 
+              <Box sx={{ p: 4 }}>
                 <Grid container spacing={3}>
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
-                      label={`Single Limit (${settings.currency})`}
+                      label={`${currentTab} Single Limit`}
                       type="number"
-                      value={currentLimit.single}
-                      onChange={(e) => handleLimitChange('single', Number(e.target.value))}
+                      value={form[`${currentTab.toLowerCase()}_single_limit` as keyof typeof form]}
+                      onChange={(e) =>
+                        handleChange(
+                          `${currentTab.toLowerCase()}_single_limit`,
+                          Number(e.target.value)
+                        )
+                      }
                       InputProps={{
                         startAdornment: (
-                          <InputAdornment position="start">{settings.currency}</InputAdornment>
+                          <InputAdornment position="start">{currentTab}</InputAdornment>
                         ),
                       }}
                     />
                   </Grid>
-
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
-                      label={`Daily Limit (${settings.currency})`}
+                      label={`${currentTab} Daily Limit`}
                       type="number"
-                      value={currentLimit.daily}
-                      onChange={(e) => handleLimitChange('daily', Number(e.target.value))}
+                      value={form[`${currentTab.toLowerCase()}_daily_limit` as keyof typeof form]}
+                      onChange={(e) =>
+                        handleChange(
+                          `${currentTab.toLowerCase()}_daily_limit`,
+                          Number(e.target.value)
+                        )
+                      }
                       InputProps={{
                         startAdornment: (
-                          <InputAdornment position="start">{settings.currency}</InputAdornment>
+                          <InputAdornment position="start">{currentTab}</InputAdornment>
                         ),
                       }}
                     />
                   </Grid>
-
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      select
-                      label="Fee Bearer"
-                      value={settings.feeBearer}
-                      onChange={(e) => handleChange('feeBearer', e.target.value)}
-                    >
-                      <MenuItem value="merchant">Merchant (Business pays fees)</MenuItem>
-                      <MenuItem value="customer">Customer (Fee added to checkout)</MenuItem>
-                    </TextField>
-                  </Grid>
                 </Grid>
-              </Card>
+              </Box>
+            </Card>
 
-              <Card sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ mb: 3 }}>
-                  Operations & Preferences
-                </Typography>
-                <Stack spacing={2}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={settings.autoSettle}
-                        onChange={(e) => handleChange('autoSettle', e.target.checked)}
-                      />
-                    }
-                    label={
-                      <Box>
-                        <Typography variant="subtitle2">Automated Settlement</Typography>
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          Payout to bank account every 24 hours.
-                        </Typography>
-                      </Box>
-                    }
-                  />
-                  <Divider sx={{ borderStyle: 'dashed' }} />
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={settings.enableNotifications}
-                        onChange={(e) => handleChange('enableNotifications', e.target.checked)}
-                      />
-                    }
-                    label={
-                      <Box>
-                        <Typography variant="subtitle2">Transaction Email Alerts</Typography>
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          Notifications for every successful payment.
-                        </Typography>
-                      </Box>
-                    }
-                  />
-                </Stack>
-              </Card>
-            </Stack>
+            <Card sx={{ p: 4 }}>
+              <Typography variant="h6" gutterBottom>
+                Fee Management
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Decide who covers processing costs during checkout.
+              </Typography>
+              <TextField
+                select
+                fullWidth
+                value={form.fee_bearer}
+                onChange={(e) => handleChange('fee_bearer', e.target.value)}
+              >
+                <MenuItem value="merchant">Merchant (I absorb the fees)</MenuItem>
+                <MenuItem value="customer">Customer (Fees added to order total)</MenuItem>
+              </TextField>
+            </Card>
           </Grid>
 
-          {/* Security & Status Column */}
-          <Grid item xs={12} md={5}>
+          {/* Right Column: Security & Settlements */}
+          <Grid item xs={12} md={4}>
             <Stack spacing={3}>
-              <Card sx={{ p: 3 }}>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 3 }}>
-                  <Iconify icon="eva:shield-fill" sx={{ color: 'primary.main' }} />
-                  <Typography variant="h6">Security Validation</Typography>
+              <Card sx={{ p: 3, border: `1px solid ${theme.palette.divider}` }}>
+                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+                  <Box
+                    sx={{
+                      p: 1,
+                      bgcolor: alpha(theme.palette.warning.main, 0.1),
+                      borderRadius: 1,
+                      display: 'flex',
+                    }}
+                  >
+                    <Iconify icon="eva:shield-fill" sx={{ color: 'warning.main' }} />
+                  </Box>
+                  <Typography variant="subtitle1">Security Level</Typography>
                 </Stack>
-
                 <TextField
-                  fullWidth
                   select
-                  label="Authentication Method"
-                  value={settings.authType}
-                  onChange={(e) => handleChange('authType', e.target.value)}
-                  sx={{ mb: 3 }}
+                  fullWidth
+                  size="small"
+                  label="Authentication"
+                  value={form.authentication_method}
+                  onChange={(e) => handleChange('authentication_method', e.target.value)}
+                  sx={{ mb: 2 }}
                 >
-                  <MenuItem value="otp">One-Time Password (OTP)</MenuItem>
-                  <MenuItem value="pin">Static Transaction PIN</MenuItem>
+                  <MenuItem value="otp">Email OTP</MenuItem>
+                  <MenuItem value="pin">Transaction PIN</MenuItem>
                 </TextField>
 
-                {settings.authType === 'pin' && settings.hasPinSet && (
+                {form.authentication_method === 'pin' && (
                   <Button
-                    variant="soft"
                     fullWidth
-                    startIcon={<Iconify icon="eva:edit-fill" />}
+                    variant="soft"
                     onClick={() => setOpenPinModal(true)}
+                    startIcon={<Iconify icon="eva:lock-outline" />}
                   >
-                    Change Transaction PIN
+                    {form.pin ? 'PIN Prepared' : 'Setup Transaction PIN'}
                   </Button>
                 )}
               </Card>
 
-              <Card sx={{ p: 3, bgcolor: 'primary.lighter' }}>
-                <Typography variant="subtitle1" sx={{ color: 'primary.darker', mb: 1 }}>
-                  Verification Status
+              <Card sx={{ p: 3 }}>
+                <Typography variant="subtitle1" gutterBottom>
+                  Auto-Settlement
                 </Typography>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <Iconify icon="eva:checkmark-circle-2-fill" sx={{ color: 'success.main' }} />
-                  <Typography variant="body2" sx={{ color: 'primary.darker', fontWeight: 'bold' }}>
-                    Tier 3 Merchant
-                  </Typography>
-                </Stack>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={form.automated_settlement}
+                      onChange={(e) => handleChange('automated_settlement', e.target.checked)}
+                    />
+                  }
+                  label={
+                    <Typography variant="caption" color="text.secondary">
+                      When enabled, funds are swept to your bank account automatically.
+                    </Typography>
+                  }
+                />
               </Card>
 
-              <Button
-                variant="contained"
-                size="large"
-                fullWidth
-                onClick={() => alert(`Settings for ${settings.currency} Saved!`)}
+              <Box
+                sx={{
+                  p: 3,
+                  borderRadius: 2,
+                  bgcolor: alpha(theme.palette.info.main, 0.08),
+                  border: `1px dashed ${theme.palette.info.main}`,
+                }}
               >
-                Save All Changes
-              </Button>
+                <Stack direction="row" spacing={1}>
+                  <Iconify icon="eva:info-fill" sx={{ color: 'info.main', mt: 0.5 }} />
+                  <Typography variant="caption" sx={{ color: 'info.darker' }}>
+                    Changes to daily limits may take up to 2 hours to reflect across all payment
+                    channels.
+                  </Typography>
+                </Stack>
+              </Box>
             </Stack>
           </Grid>
         </Grid>
 
-        {/* --- PIN DIALOG --- */}
-        <Dialog open={openPinModal} onClose={() => setOpenPinModal(false)}>
-          <DialogTitle>{settings.hasPinSet ? 'Update' : 'Set'} Transaction PIN</DialogTitle>
-          <DialogContent sx={{ pt: 2 }}>
-            <Stack spacing={3}>
-              {pinError && <Alert severity="error">{pinError}</Alert>}
+        {/* --- PIN MODAL --- */}
+        <Dialog open={openPinModal} onClose={() => setOpenPinModal(false)} fullWidth maxWidth="xs">
+          <DialogTitle sx={{ textAlign: 'center', pt: 4 }}>Security PIN</DialogTitle>
+          <DialogContent>
+            <Stack spacing={3} sx={{ mt: 1 }}>
               <TextField
                 fullWidth
-                label="4-Digit PIN"
+                label="New 4-Digit PIN"
                 type="password"
-                value={pinData.pin}
-                onChange={(e) => setPinData({ ...pinData, pin: e.target.value })}
+                value={form.pin}
+                onChange={(e) => handleChange('pin', e.target.value)}
                 inputProps={{
                   maxLength: 4,
-                  style: {
-                    textAlign: 'center',
-                    letterSpacing: '1rem',
-                    fontSize: '1.5rem',
-                    fontWeight: 'bold',
-                  },
+                  style: { textAlign: 'center', letterSpacing: '0.8rem', fontSize: '1.2rem' },
                 }}
               />
               <TextField
                 fullWidth
                 label="Confirm PIN"
                 type="password"
-                value={pinData.confirm}
-                onChange={(e) => setPinData({ ...pinData, confirm: e.target.value })}
+                value={form.confirm_pin}
+                onChange={(e) => handleChange('confirm_pin', e.target.value)}
                 inputProps={{
                   maxLength: 4,
-                  style: {
-                    textAlign: 'center',
-                    letterSpacing: '1rem',
-                    fontSize: '1.5rem',
-                    fontWeight: 'bold',
-                  },
+                  style: { textAlign: 'center', letterSpacing: '0.8rem', fontSize: '1.2rem' },
                 }}
               />
             </Stack>
           </DialogContent>
-          <DialogActions sx={{ p: 3 }}>
-            <Button color="inherit" onClick={() => setOpenPinModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="contained" onClick={handleSavePin}>
-              Save PIN
+          <DialogActions sx={{ p: 3, justifyContent: 'center' }}>
+            <Button
+              variant="contained"
+              fullWidth
+              size="large"
+              onClick={() => setOpenPinModal(false)}
+            >
+              Apply PIN
             </Button>
           </DialogActions>
         </Dialog>

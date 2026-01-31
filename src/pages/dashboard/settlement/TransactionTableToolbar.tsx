@@ -1,4 +1,4 @@
-import { Stack, InputAdornment, TextField } from '@mui/material';
+import { Stack, InputAdornment, TextField, Button } from '@mui/material';
 import Iconify from '../../../components/iconify';
 
 type Props = {
@@ -8,6 +8,8 @@ type Props = {
   endDate: string;
   onChangeStartDate: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onChangeEndDate: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onApplyFilter: () => void;
+  onResetFilter: () => void;
 };
 
 export function TransactionTableToolbar({
@@ -17,6 +19,8 @@ export function TransactionTableToolbar({
   endDate,
   onChangeStartDate,
   onChangeEndDate,
+  onApplyFilter,
+  onResetFilter,
 }: Props) {
   return (
     <Stack
@@ -32,6 +36,7 @@ export function TransactionTableToolbar({
         value={startDate}
         onChange={onChangeStartDate}
         InputLabelProps={{ shrink: true }}
+        sx={{ maxWidth: { md: 200 } }}
       />
 
       <TextField
@@ -41,13 +46,14 @@ export function TransactionTableToolbar({
         value={endDate}
         onChange={onChangeEndDate}
         InputLabelProps={{ shrink: true }}
+        sx={{ maxWidth: { md: 200 } }}
       />
 
       <TextField
         fullWidth
         value={filterName}
         onChange={onFilterName}
-        placeholder="Search by Reference ID..."
+        placeholder="Search by Reference, Batch or ID..."
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
@@ -56,9 +62,29 @@ export function TransactionTableToolbar({
           ),
         }}
       />
+
+      <Stack direction="row" spacing={1} flexShrink={0} sx={{ width: { xs: 1, md: 'auto' } }}>
+        <Button
+          fullWidth
+          variant="contained"
+          startIcon={<Iconify icon="ic:round-filter-list" />}
+          onClick={onApplyFilter}
+        >
+          Filter
+        </Button>
+
+        <Button
+          fullWidth
+          variant="soft"
+          color="error"
+          onClick={onResetFilter}
+          startIcon={<Iconify icon="eva:refresh-outline" />}
+        >
+          Reset
+        </Button>
+      </Stack>
     </Stack>
   );
 }
 
-// Added Default Export
 export default TransactionTableToolbar;

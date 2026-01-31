@@ -1,11 +1,7 @@
-/* eslint-disable react/jsx-no-undef */
-/* eslint-disable arrow-body-style */
-/* eslint-disable no-alert */
-/* eslint-disable import/extensions */
-import { useState, useMemo } from 'react';
+/* eslint-disable react-hooks/exhaustive-deps */
+import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
-import { useRouter } from 'next/router';
-import * as XLSX from 'xlsx';
+import { useSnackbar } from 'notistack';
 // @mui
 import {
   Grid,
@@ -13,7 +9,6 @@ import {
   Table,
   Stack,
   Button,
-  Divider,
   TableBody,
   Container,
   TableRow,
@@ -21,24 +16,24 @@ import {
   Typography,
   IconButton,
   TableContainer,
-  Drawer,
   Box,
   ToggleButton,
   ToggleButtonGroup,
-  Switch,
+  Skeleton,
+  CircularProgress,
+  alpha,
+  useTheme,
   Modal,
   TextField,
+  InputAdornment,
+  FormControl,
+  InputLabel,
   Select,
   MenuItem,
-  InputLabel,
-  FormControl,
-  InputAdornment,
   Collapse,
-  Alert,
-  AlertTitle,
-  FormControlLabel,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+// auth
+import { useAuthContext } from '../../../auth/useAuthContext';
 // layouts
 import DashboardLayout from '../../../layouts/dashboard';
 // components
@@ -48,145 +43,88 @@ import StatWidget from '../../../components/widgets/StatWidget';
 import { useSettingsContext } from '../../../components/settings';
 import {
   useTable,
-  getComparator,
   TableNoData,
   TableHeadCustom,
   TablePaginationCustom,
 } from '../../../components/table';
 // utils
+import axios from '../../../utils/axios';
 import { fDate } from '../../../utils/formatTime';
 import { fCurrency } from '../../../utils/formatNumber';
-import { TransactionTableToolbar } from './TransactionTableToolbar';
+import TransactionTableToolbar from './TransactionTableToolbar';
 
 // ----------------------------------------------------------------------
 
 const TABLE_HEAD = [
-  { id: 'name', label: 'Link Name', align: 'left' },
+  { id: 'title', label: 'Link Name', align: 'left' },
   { id: 'type', label: 'Type', align: 'left' },
-  { id: 'status', label: 'Status', align: 'left' },
-  { id: 'totalPayments', label: 'Sales', align: 'center' },
-  { id: 'totalRevenue', label: 'Total Revenue', align: 'left' },
-  { id: 'createdAt', label: 'Created', align: 'right' },
+  { id: 'is_active', label: 'Status', align: 'left' },
+  { id: 'successful_payments_count', label: 'Sales', align: 'center' },
+  { id: 'amount', label: 'Price', align: 'left' },
+  { id: 'created_at', label: 'Created', align: 'right' },
   { id: 'action', label: '', align: 'right' },
 ];
-
-const MOCK_LINKS = [
-  {
-    id: 'PL-101',
-    name: 'Standard Consultation',
-    type: 'one-time',
-    amount: 50,
-    totalPayments: 12,
-    totalRevenue: 600,
-    status: 'active',
-    createdAt: '2026-01-05',
-    currency: 'USD',
-    limit: 50,
-    expiry: '2026-12-31',
-    isTest: false,
-  },
-  {
-    id: 'PL-102',
-    name: 'Monthly Maintenance',
-    type: 'subscription',
-    amount: 5000,
-    totalPayments: 4,
-    totalRevenue: 20000,
-    status: 'active',
-    createdAt: '2026-01-08',
-    currency: 'NGN',
-    limit: 'Unlimited',
-    expiry: 'None',
-    isTest: false,
-  },
-  {
-    id: 'PL-TEST-01',
-    name: 'Sandbox Test Product',
-    type: 'one-time',
-    amount: 10,
-    totalPayments: 2,
-    totalRevenue: 20,
-    status: 'active',
-    createdAt: '2026-01-15',
-    currency: 'USD',
-    limit: 5,
-    expiry: '2026-01-20',
-    isTest: true,
-  },
-];
-
-// ----------------------------------------------------------------------
 
 PaymentLinkPage.getLayout = (page: React.ReactElement) => <DashboardLayout>{page}</DashboardLayout>;
 
 export default function PaymentLinkPage() {
   const theme = useTheme();
-  const { push } = useRouter();
+  const { user } = useAuthContext();
+  const { enqueueSnackbar } = useSnackbar();
   const { themeStretch } = useSettingsContext();
+
   const { page, order, orderBy, rowsPerPage, onSort, onChangePage, onChangeRowsPerPage } =
     useTable();
 
+  const isTestMode = user?.mode === 'test';
+
+  // States
+  const [tableData, setTableData] = useState([]);
+  const [summary, setSummary] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [currency, setCurrency] = useState('NGN');
-  const [isTestMode, setIsTestMode] = useState(false);
   const [filterName, setFilterName] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
-
   const [openCreateModal, setOpenCreateModal] = useState(false);
-  const [openDetailsDrawer, setOpenDetailsDrawer] = useState(false);
-  const [selectedLink, setSelectedLink] = useState<any>(null);
 
-  // 1. Define a specific interface for your Payment Link
-  interface PaymentLink {
-    id: string;
-    name: string;
-    type: string;
-    amount: number;
-    totalPayments: number;
-    totalRevenue: number;
-    status: string;
-    createdAt: string;
-    currency: string;
-    limit: number | string;
-    expiry: string;
-    isTest: boolean;
-  }
+  // --- API FETCH ---
+  const getLinks = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('/paymentlinks', {
+        params: {
+          currency,
+          mode: user?.mode || 'live',
+          search: filterName || undefined,
+          start_date: filterStartDate || undefined,
+          end_date: filterEndDate || undefined,
+        },
+      });
+      setTableData(response.data.data.data || []);
+      setSummary(response.data.summary);
+    } catch (error) {
+      enqueueSnackbar('Failed to fetch payment links', { variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }, [currency, user?.mode, filterName, filterStartDate, filterEndDate, enqueueSnackbar]);
 
-  // 2. Use the interface in your useMemo
-  const dataFiltered = useMemo(() => {
-    // Cast MOCK_LINKS or ensure it's typed as PaymentLink[]
-    const filtered = MOCK_LINKS.filter((item: PaymentLink) => {
-      const matchMode = item.isTest === isTestMode;
-      const matchCurrency = item.currency === currency;
-      const matchName = item.name.toLowerCase().includes(filterName.toLowerCase());
+  useEffect(() => {
+    getLinks();
+  }, [currency, user?.mode]);
 
-      let matchDate = true;
-      if (filterStartDate) {
-        matchDate = matchDate && new Date(item.createdAt) >= new Date(filterStartDate);
-      }
-      if (filterEndDate) {
-        matchDate = matchDate && new Date(item.createdAt) <= new Date(filterEndDate);
-      }
-
-      return matchMode && matchCurrency && matchName && matchDate;
-    });
-
-    // Type assertion 'as any' here resolves the comparator constraint
-    // without breaking the actual sorting logic
-    return filtered.sort((a, b) => getComparator(order, orderBy)(a as any, b as any));
-  }, [isTestMode, currency, filterName, filterStartDate, filterEndDate, order, orderBy]);
-
-  const stats = {
-    revenue: dataFiltered.reduce((acc, curr) => acc + curr.totalRevenue, 0),
-    sales: dataFiltered.reduce((acc, curr) => acc + curr.totalPayments, 0),
-    active: dataFiltered.filter((l) => l.status === 'active').length,
+  const handleResetFilter = () => {
+    setFilterName('');
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setTimeout(() => getLinks(), 50);
   };
 
-  const handleExport = () => {
-    const ws = XLSX.utils.json_to_sheet(dataFiltered);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'PaymentLinks');
-    XLSX.writeFile(wb, `PaymentLinks_${isTestMode ? 'TEST' : 'LIVE'}_${currency}.xlsx`);
+  const handleCopy = (e: React.MouseEvent, linkId: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(`https://paylens.me/${linkId}`);
+    enqueueSnackbar('Link copied to clipboard');
   };
 
   return (
@@ -196,42 +134,19 @@ export default function PaymentLinkPage() {
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>
-        {isTestMode && (
-          <Alert
-            severity="warning"
-            variant="filled"
-            sx={{ mb: 3, bgcolor: theme.palette.warning.dark }}
-          >
-            <AlertTitle sx={{ fontWeight: 'bold' }}>Test Mode Enabled</AlertTitle>
-            You are viewing sandbox data.
-          </Alert>
-        )}
-
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 5 }}>
           <Box>
             <Typography variant="h3">Payment Links</Typography>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={isTestMode}
-                    onChange={(e) => setIsTestMode(e.target.checked)}
-                    color="warning"
-                  />
-                }
-                label={
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      fontWeight: 'bold',
-                      color: isTestMode ? 'warning.main' : 'text.disabled',
-                    }}
-                  >
-                    TEST MODE
-                  </Typography>
-                }
-              />
-            </Stack>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Environment:{' '}
+              <strong
+                style={{
+                  color: isTestMode ? theme.palette.warning.main : theme.palette.success.main,
+                }}
+              >
+                {isTestMode ? 'TEST' : 'LIVE'}
+              </strong>
+            </Typography>
           </Box>
 
           <Stack direction="row" spacing={2}>
@@ -240,7 +155,7 @@ export default function PaymentLinkPage() {
               exclusive
               onChange={(e, val) => val && setCurrency(val)}
               size="small"
-              color={isTestMode ? 'warning' : 'primary'}
+              color="primary"
             >
               {['NGN', 'USD', 'GBP'].map((curr) => (
                 <ToggleButton key={curr} value={curr} sx={{ px: 2, fontWeight: 'bold' }}>
@@ -260,114 +175,117 @@ export default function PaymentLinkPage() {
         </Stack>
 
         <Grid container spacing={3} sx={{ mb: 5 }}>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={3}>
             <StatWidget
               title="Link Revenue"
-              amount={fCurrency(stats.revenue, currency)}
-              variant={isTestMode ? 'warning' : 'primary'}
-              icon={<Iconify icon="solar:round-alt-arrow-up-bold-duotone" width={32} />}
+              icon={<Iconify icon="eva:trending-up-fill" width={32} />}
+              amount={loading ? <Skeleton /> : summary?.total_revenue}
+              variant="primary"
             />
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={3}>
             <StatWidget
               title="Total Sales"
-              amount={stats.sales}
+              icon={<Iconify icon="eva:shopping-cart-fill" width={32} />}
+              amount={loading ? <Skeleton /> : summary?.total_sales || 0}
               variant="info"
-              icon={<Iconify icon="solar:bag-check-bold-duotone" width={32} />}
             />
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={3}>
             <StatWidget
               title="Active Links"
-              amount={stats.active}
+              icon={<Iconify icon="eva:link-2-fill" width={32} />}
+              amount={loading ? <Skeleton /> : summary?.active_links || 0}
               variant="success"
-              icon={<Iconify icon="solar:link-bold-duotone" width={32} />}
+            />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <StatWidget
+              title="Inactive"
+              icon={<Iconify icon="eva:link-2-outline" width={32} />}
+              amount={loading ? <Skeleton /> : summary?.inactive_links || 0}
+              variant="warning"
             />
           </Grid>
         </Grid>
 
         <Card sx={{ border: isTestMode ? `1px dashed ${theme.palette.warning.main}` : 'none' }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ pr: 2 }}>
-            <TransactionTableToolbar
-              filterName={filterName}
-              startDate={filterStartDate}
-              endDate={filterEndDate}
-              onFilterName={(e) => setFilterName(e.target.value)}
-              onChangeStartDate={(e) => setFilterStartDate(e.target.value)}
-              onChangeEndDate={(e) => setFilterEndDate(e.target.value)}
-            />
-            <Button
-              variant="soft"
-              color="inherit"
-              startIcon={<Iconify icon="solar:file-download-bold-duotone" />}
-              onClick={handleExport}
-            >
-              Export XLS
-            </Button>
-          </Stack>
+          <TransactionTableToolbar
+            filterName={filterName}
+            startDate={filterStartDate}
+            endDate={filterEndDate}
+            onFilterName={(e) => setFilterName(e.target.value)}
+            onChangeStartDate={(e) => setFilterStartDate(e.target.value)}
+            onChangeEndDate={(e) => setFilterEndDate(e.target.value)}
+            onApplyFilter={getLinks}
+            onResetFilter={handleResetFilter}
+          />
 
-          <TableContainer>
+          <TableContainer sx={{ position: 'relative', minHeight: 400 }}>
+            {loading && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  bgcolor: alpha(theme.palette.background.paper, 0.7),
+                  zIndex: 9,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <CircularProgress color={isTestMode ? 'warning' : 'primary'} />
+              </Box>
+            )}
             <Scrollbar>
               <Table sx={{ minWidth: 900 }}>
-                <TableHeadCustom
-                  order={order}
-                  orderBy={orderBy}
-                  headLabel={TABLE_HEAD}
-                  onSort={onSort}
-                />
+                <TableHeadCustom headLabel={TABLE_HEAD} onSort={onSort} />
                 <TableBody>
-                  {dataFiltered
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((row) => (
-                      <TableRow
-                        hover
-                        key={row.id}
-                        onClick={() => {
-                          setSelectedLink(row);
-                          setOpenDetailsDrawer(true);
-                        }}
-                        sx={{ cursor: 'pointer' }}
-                      >
-                        <TableCell>
-                          <Typography variant="subtitle2">{row.name}</Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            paylens.me/{row.id}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ textTransform: 'capitalize' }}>{row.type}</TableCell>
-                        <TableCell>
-                          <Switch
-                            size="small"
-                            defaultChecked={row.status === 'active'}
-                            onClick={(e) => e.stopPropagation()}
-                            color={isTestMode ? 'warning' : 'primary'}
-                          />
-                        </TableCell>
-                        <TableCell align="center">{row.totalPayments}</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>
-                          {fCurrency(row.totalRevenue, currency)}
-                        </TableCell>
-                        <TableCell align="right">{fDate(row.createdAt)}</TableCell>
-                        <TableCell align="right">
-                          <IconButton
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              alert('Copied!');
-                            }}
-                            color={isTestMode ? 'warning' : 'primary'}
-                          >
-                            <Iconify icon="solar:copy-bold-duotone" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  <TableNoData isNotFound={!dataFiltered.length} />
+                  {tableData.map((row: any) => (
+                    <TableRow hover key={row.id} sx={{ cursor: 'pointer' }}>
+                      <TableCell>
+                        <Typography variant="subtitle2">{row.title}</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          paylens.me/{row.link_id}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ textTransform: 'capitalize' }}>{row.type}</TableCell>
+                      <TableCell>
+                        <Iconify
+                          icon={
+                            row.is_active === 1
+                              ? 'eva:checkmark-circle-2-fill'
+                              : 'eva:close-circle-fill'
+                          }
+                          sx={{
+                            color: row.is_active === 1 ? 'success.main' : 'error.main',
+                            width: 24,
+                            height: 24,
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="center">{row.successful_payments_count || 0}</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>
+                        {fCurrency(row.amount || 0, row.currency)}
+                      </TableCell>
+                      <TableCell align="right">{fDate(row.created_at)}</TableCell>
+                      <TableCell align="right">
+                        <IconButton onClick={(e) => handleCopy(e, row.link_id)} color="primary">
+                          <Iconify icon="solar:copy-bold-duotone" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableNoData isNotFound={!tableData.length && !loading} />
                 </TableBody>
               </Table>
             </Scrollbar>
           </TableContainer>
           <TablePaginationCustom
-            count={dataFiltered.length}
+            count={tableData.length}
             page={page}
             rowsPerPage={rowsPerPage}
             onPageChange={onChangePage}
@@ -376,108 +294,66 @@ export default function PaymentLinkPage() {
         </Card>
       </Container>
 
-      {/* CREATE MODAL */}
       <CreateLinkModal
         open={openCreateModal}
         onClose={() => setOpenCreateModal(false)}
         currentCurrency={currency}
         isTest={isTestMode}
+        onRefresh={getLinks}
       />
-
-      {/* MANAGEMENT DRAWER */}
-      <Drawer
-        anchor="right"
-        open={openDetailsDrawer}
-        onClose={() => setOpenDetailsDrawer(false)}
-        PaperProps={{ sx: { width: 400 } }}
-      >
-        {selectedLink && (
-          <Box sx={{ p: 3 }}>
-            <Stack
-              direction="row"
-              alignItems="center"
-              justifyContent="space-between"
-              sx={{ mb: 3 }}
-            >
-              <Typography variant="h6">Link Control Center</Typography>
-              <IconButton onClick={() => setOpenDetailsDrawer(false)}>
-                <Iconify icon="eva:close-fill" />
-              </IconButton>
-            </Stack>
-
-            <Stack spacing={4}>
-              <Box sx={{ p: 2, bgcolor: 'background.neutral', borderRadius: 1 }}>
-                <Typography variant="overline" display="block">
-                  Quick Stats
-                </Typography>
-                <Typography
-                  variant="h4"
-                  sx={{ color: isTestMode ? 'warning.main' : 'primary.main' }}
-                >
-                  {fCurrency(selectedLink.totalRevenue, currency)}
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Generated from {selectedLink.totalPayments} successful payments
-                </Typography>
-              </Box>
-
-              <Button
-                fullWidth
-                variant="contained"
-                size="large"
-                color={isTestMode ? 'warning' : 'primary'}
-                startIcon={<Iconify icon="solar:chart-square-bold" />}
-                onClick={() => push(`/dashboard/paymentlink/${selectedLink.id}/details`)}
-              >
-                View Full Analytics & Sales
-              </Button>
-
-              <Divider sx={{ borderStyle: 'dashed' }} />
-
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 2 }}>
-                  Share on Socials
-                </Typography>
-                <Stack direction="row" spacing={2}>
-                  <Button
-                    fullWidth
-                    variant="soft"
-                    color="success"
-                    startIcon={<Iconify icon="logos:whatsapp-icon" />}
-                  >
-                    WhatsApp
-                  </Button>
-                  <Button
-                    fullWidth
-                    variant="soft"
-                    color="info"
-                    startIcon={<Iconify icon="logos:twitter" />}
-                  >
-                    Twitter
-                  </Button>
-                </Stack>
-              </Box>
-
-              <Stack spacing={1.5}>
-                <Button fullWidth variant="soft" color="inherit">
-                  Edit Link Configuration
-                </Button>
-                <Button fullWidth variant="outlined" color="error">
-                  Archive This Link
-                </Button>
-              </Stack>
-            </Stack>
-          </Box>
-        )}
-      </Drawer>
     </>
   );
 }
 
 // ----------------------------------------------------------------------
 
-function CreateLinkModal({ open, onClose, currentCurrency, isTest }: any) {
-  const [form, setForm] = useState({ after: 'message' });
+function CreateLinkModal({ open, onClose, currentCurrency, isTest, onRefresh }: any) {
+  const { enqueueSnackbar } = useSnackbar();
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    amount: '',
+    currency: currentCurrency,
+    type: 'professional',
+    usage_limit: '',
+    payment_action: 'message',
+    redirect_url: '',
+  });
+
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, currency: currentCurrency }));
+  }, [currentCurrency]);
+
+  const handleSubmit = async () => {
+    try {
+      setSubmitting(true);
+      await axios.post('/paymentlinks/create', {
+        ...form,
+        mode: isTest ? 'test' : 'live',
+        amount: parseFloat(form.amount),
+        usage_limit: form.usage_limit ? parseInt(form.usage_limit, 10) : null,
+      });
+      enqueueSnackbar('Link created successfully!', { variant: 'success' });
+      onRefresh();
+      onClose();
+      setForm({
+        title: '',
+        description: '',
+        amount: '',
+        currency: currentCurrency,
+        type: 'professional',
+        usage_limit: '',
+        payment_action: 'message',
+        redirect_url: '',
+      });
+    } catch (error) {
+      enqueueSnackbar('Failed to create link', { variant: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -487,53 +363,96 @@ function CreateLinkModal({ open, onClose, currentCurrency, isTest }: any) {
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          width: 550,
+          width: { xs: '95%', md: 600 },
           bgcolor: 'background.paper',
           borderRadius: 2,
           p: 4,
           boxShadow: 24,
+          maxHeight: '90vh',
+          overflowY: 'auto',
         }}
       >
         <Typography variant="h5" sx={{ mb: 3 }}>
-          Create {isTest ? 'Test' : 'Live'} Link
+          Create {isTest ? 'Test' : 'Live'} Payment Link
         </Typography>
         <Stack spacing={3}>
-          <TextField fullWidth label="Link Title" />
-          <Stack direction="row" spacing={2}>
+          <TextField
+            fullWidth
+            label="Link Title"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+          />
+          <TextField
+            fullWidth
+            multiline
+            rows={2}
+            label="Description"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
               fullWidth
               label="Amount"
               type="number"
+              value={form.amount}
+              onChange={(e) => setForm({ ...form, amount: e.target.value })}
               InputProps={{
                 startAdornment: <InputAdornment position="start">{currentCurrency}</InputAdornment>,
               }}
             />
-            <TextField fullWidth label="Usage Limit" type="number" placeholder="Unlimited" />
-          </Stack>
-          <Box>
-            <FormControl fullWidth sx={{ mb: form.after === 'redirect' ? 2 : 0 }}>
-              <InputLabel>After Payment Action</InputLabel>
+            <FormControl fullWidth>
+              <InputLabel>Link Type</InputLabel>
               <Select
-                value={form.after}
-                label="After Payment Action"
-                onChange={(e) => setForm({ ...form, after: e.target.value })}
+                value={form.type}
+                label="Link Type"
+                onChange={(e) => setForm({ ...form, type: e.target.value })}
               >
-                <MenuItem value="message">Show Success Message</MenuItem>
-                <MenuItem value="redirect">Redirect to Website</MenuItem>
+                <MenuItem value="basic">Basic</MenuItem>
+                <MenuItem value="professional">Professional</MenuItem>
               </Select>
             </FormControl>
-            <Collapse in={form.after === 'redirect'}>
-              <TextField fullWidth label="Custom Redirect URL" placeholder="https://..." />
-            </Collapse>
-          </Box>
+          </Stack>
+
+          <TextField
+            fullWidth
+            label="Usage Limit"
+            type="number"
+            value={form.usage_limit}
+            onChange={(e) => setForm({ ...form, usage_limit: e.target.value })}
+          />
+
+          <FormControl fullWidth>
+            <InputLabel>Payment Action</InputLabel>
+            <Select
+              value={form.payment_action}
+              label="Payment Action"
+              onChange={(e) => setForm({ ...form, payment_action: e.target.value })}
+            >
+              <MenuItem value="message">Show Success Message</MenuItem>
+              <MenuItem value="redirect">Redirect to URL</MenuItem>
+            </Select>
+          </FormControl>
+
+          <Collapse in={form.payment_action === 'redirect'}>
+            <TextField
+              fullWidth
+              label="Redirect URL"
+              value={form.redirect_url}
+              onChange={(e) => setForm({ ...form, redirect_url: e.target.value })}
+            />
+          </Collapse>
+
           <Button
             fullWidth
             variant="contained"
             size="large"
             color={isTest ? 'warning' : 'primary'}
-            onClick={onClose}
+            onClick={handleSubmit}
+            disabled={submitting || !form.title || !form.amount}
           >
-            Generate Link
+            {submitting ? <CircularProgress size={24} color="inherit" /> : 'Generate Payment Link'}
           </Button>
         </Stack>
       </Box>

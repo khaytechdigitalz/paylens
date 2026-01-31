@@ -1,9 +1,9 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable prefer-const */
 /* eslint-disable no-nested-ternary */
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import Head from 'next/head';
-// next
 import { useRouter } from 'next/router';
 // @mui
 import {
@@ -24,6 +24,7 @@ import {
   Box,
   ToggleButton,
   ToggleButtonGroup,
+  Skeleton,
 } from '@mui/material';
 // layouts
 import DashboardLayout from '../../../layouts/dashboard';
@@ -34,13 +35,15 @@ import StatWidget from '../../../components/widgets/StatWidget';
 import { useSettingsContext } from '../../../components/settings';
 import {
   useTable,
-  getComparator,
   TableNoData,
   TableHeadCustom,
   TablePaginationCustom,
+  TableSkeleton,
 } from '../../../components/table';
 // utils
+import axios from '../../../utils/axios';
 import { fDate } from '../../../utils/formatTime';
+import { fCurrency } from '../../../utils/formatNumber';
 // Internal Component
 import { TransactionTableToolbar } from './TransactionTableToolbar';
 
@@ -48,43 +51,35 @@ import { TransactionTableToolbar } from './TransactionTableToolbar';
 
 interface Transaction {
   id: string;
-  date: string;
+  created_at: string;
   amount: number;
-  status: 'completed' | 'pending' | 'failed';
-  method: string;
+  fee: number;
+  currency: string;
+  balance_before: number;
+  balance_after: number;
+  category: string;
+  status: string;
+  reference: string;
+  type: string;
+}
+
+interface Stats {
+  transaction_value: number;
+  transaction_fee: number;
+  transaction_volume: number;
 }
 
 const TABLE_HEAD = [
-  { id: 'id', label: 'Reference ID', align: 'left' },
-  { id: 'date', label: 'Date', align: 'left' },
+  { id: 'reference', label: 'Reference', align: 'left' },
+  { id: 'category', label: 'Category', align: 'left' },
+  { id: 'created_at', label: 'Date', align: 'left' },
+  { id: 'currency', label: 'Currency', align: 'left' },
   { id: 'amount', label: 'Amount', align: 'left' },
+  { id: 'fee', label: 'Fee', align: 'left' },
+  { id: 'balance_before', label: 'Prev. Balance', align: 'left' },
+  { id: 'balance_after', label: 'New Balance', align: 'left' },
   { id: 'status', label: 'Status', align: 'left' },
   { id: '' },
-];
-
-const TABLE_DATA: Transaction[] = [
-  {
-    id: 'TX-1234',
-    date: '2026-01-10',
-    amount: 1250.0,
-    status: 'completed',
-    method: 'Visa **** 4242',
-  },
-  { id: 'TX-5678', date: '2026-01-12', amount: 85.5, status: 'pending', method: 'Bank Transfer' },
-  {
-    id: 'TX-9012',
-    date: '2026-01-15',
-    amount: 450.0,
-    status: 'failed',
-    method: 'Mastercard **** 8888',
-  },
-  {
-    id: 'TX-3456',
-    date: '2026-01-16',
-    amount: 2300.0,
-    status: 'completed',
-    method: 'Visa **** 1111',
-  },
 ];
 
 // ----------------------------------------------------------------------
@@ -92,73 +87,134 @@ const TABLE_DATA: Transaction[] = [
 PageFive.getLayout = (page: React.ReactElement) => <DashboardLayout>{page}</DashboardLayout>;
 
 export default function PageFive() {
-  const { push } = useRouter();
+  const { push, query, pathname } = useRouter();
   const { themeStretch } = useSettingsContext();
-  const { page, order, orderBy, rowsPerPage, setPage, onSort, onChangePage, onChangeRowsPerPage } =
-    useTable();
 
-  // States
-  const [filterName, setFilterName] = useState('');
-  const [filterStartDate, setFilterStartDate] = useState('');
-  const [filterEndDate, setFilterEndDate] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const { page, order, orderBy, rowsPerPage, setPage, onSort, onChangePage, onChangeRowsPerPage } =
+    useTable({ defaultRowsPerPage: 10 });
+
+  // 1. URL Source of Truth
+  const activeCurrency = (query.currency as string) || '';
+  const activeStatus = (query.status as string) || '';
+  const activeType = (query.type as string) || '';
+  const activeStartDate = (query.start_date as string) || '';
+  const activeEndDate = (query.end_date as string) || '';
+
+  // 2. Local State for UI Inputs
+  const [localFilters, setLocalFilters] = useState({
+    name: '',
+    currency:'',
+    status: activeStatus,
+    type: activeType,
+    startDate: activeStartDate,
+    endDate: activeEndDate,
+  });
+
+  const [tableData, setTableData] = useState<Transaction[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [openDrawer, setOpenDrawer] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
-  // Handlers
-  const handleGoToDetails = (event: React.MouseEvent<HTMLElement>, id: string) => {
-    event.stopPropagation();
-    push(`/dashboard/transactions/${id}/details`);
-  };
+  // 3. Fetch Function
+  const getTransactions = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('/transactions', {
+        params: {
+          page: page + 1,
+          per_page: rowsPerPage,
+          search: localFilters.name,
+          status: activeStatus,
+          currency: activeCurrency,
+          start_date: activeStartDate,
+          end_date: activeEndDate,
+          type: activeType,
+        },
+      });
 
-  const handleCurrencyChange = (_: React.MouseEvent<HTMLElement>, newCurrency: string | null) => {
-    if (newCurrency) setCurrency(newCurrency);
-  };
+      const { transactions, stats: apiStats } = response.data;
+      setTableData(transactions.data || []);
+      setTotalRecords(transactions.total || 0);
+      setStats(apiStats);
+    } catch (error) {
+      console.error('Failed to fetch transactions:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    page,
+    rowsPerPage,
+    query,
+    activeStatus,
+    activeCurrency,
+    activeStartDate,
+    activeEndDate,
+    activeType,
+    localFilters.name,
+  ]);
 
-  const handleQuickDate = (range: 'today' | 'seven_days' | 'month') => {
-    const end = new Date();
-    let start = new Date();
-    if (range === 'seven_days') start.setDate(end.getDate() - 7);
-    if (range === 'month') start.setMonth(end.getMonth() - 1);
-    const formatDate = (date: Date) => date.toISOString().split('T')[0];
-    setFilterStartDate(formatDate(start));
-    setFilterEndDate(formatDate(end));
+  useEffect(() => {
+    getTransactions();
+  }, [getTransactions]);
+
+  // 4. Handlers
+  const handleFilterSubmit = () => {
     setPage(0);
+
+    // Helper to convert 'all' to empty string
+    const cleanValue = (value: string) => (value === 'all' ? '' : value);
+
+    push(
+      {
+        pathname,
+        query: {
+          ...query,
+          currency: cleanValue(localFilters.currency),
+          status: cleanValue(localFilters.status),
+          type: cleanValue(localFilters.type),
+          start_date: localFilters.startDate,
+          end_date: localFilters.endDate,
+          search: localFilters.name,
+        },
+      },
+      undefined,
+      { shallow: true }
+    );
   };
 
-  const dataFiltered = applyFilter({
-    inputData: TABLE_DATA,
-    comparator: getComparator(order, orderBy),
-    filterName,
-    filterStartDate,
-    filterEndDate,
-  });
-
-  // Calculate stats based on filtered data
-  const totalValue = dataFiltered.reduce((acc, curr) => acc + curr.amount, 0);
-  const totalVolume = dataFiltered.length;
-  const totalFees = totalValue * 0.01;
-
-  const formatValue = (val: number) => {
-    const symbols: Record<string, string> = { USD: '$', NGN: '₦', GBP: '£' };
-    return `${symbols[currency]}${val.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+  const handleCurrencyChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newCurrency: string | null
+  ) => {
+    if (newCurrency) {
+      setPage(0);
+      push({ pathname, query: { ...query, currency: newCurrency } }, undefined, { shallow: true });
+    }
   };
 
-  // RESTORED EXCEL EXPORT LOGIC
+  // RESTORED: Export Handler
   const handleExport = () => {
-    const exportData = dataFiltered.map((row) => ({
-      'Reference ID': row.id,
-      Date: row.date,
+    const exportData = tableData.map((row) => ({
+      Reference: row.reference,
+      Category: row.category,
+      Date: fDate(row.created_at),
       Amount: row.amount,
-      Currency: currency,
+      Fee: row.fee,
+      Currency: row.currency,
+      'Balance Before': row.balance_before,
+      'Balance After': row.balance_after,
       Status: row.status,
-      Method: row.method,
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
-    XLSX.writeFile(wb, `PayLens_Transactions_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(
+      wb,
+      `PayLens_Export_${activeCurrency}_${new Date().toISOString().split('T')[0]}.xlsx`
+    );
   };
 
   return (
@@ -171,15 +227,15 @@ export default function PageFive() {
         <Stack
           direction={{ xs: 'column', md: 'row' }}
           spacing={2}
-          alignItems={{ md: 'center' }}
-          justifyContent="space-between"
           sx={{ mb: 5 }}
+          justifyContent="space-between"
+          alignItems={{ md: 'center' }}
         >
           <Typography variant="h3">Transaction History</Typography>
 
           <Stack direction="row" spacing={2} alignItems="center">
             <ToggleButtonGroup
-              value={currency}
+              value={activeCurrency}
               exclusive
               onChange={handleCurrencyChange}
               size="small"
@@ -192,84 +248,78 @@ export default function PageFive() {
               ))}
             </ToggleButtonGroup>
 
+            {/* RESTORED: Export Button */}
             <Button
               variant="contained"
               color="inherit"
               startIcon={<Iconify icon="eva:download-outline" />}
               onClick={handleExport}
+              disabled={loading || tableData.length === 0}
             >
               Export Excel
             </Button>
           </Stack>
         </Stack>
 
-        <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-          {['Today', 'Last 7 Days', 'This Month'].map((label) => (
-            <Button
-              key={label}
-              size="small"
-              variant="soft"
-              onClick={() =>
-                handleQuickDate(
-                  label === 'Today' ? 'today' : label === 'Last 7 Days' ? 'seven_days' : 'month'
-                )
-              }
-              sx={{ borderRadius: 1, typography: 'caption', fontWeight: 'bold' }}
-            >
-              {label}
-            </Button>
-          ))}
-        </Stack>
-
         <Grid container spacing={3} sx={{ mb: 5 }}>
           <Grid item xs={12} md={4}>
-            <StatWidget
-              title="Transaction Value"
-              amount={formatValue(totalValue)}
-              variant="primary"
-              icon={<Iconify icon="eva:diagonal-arrow-left-down-fill" width={32} />}
-            />
+            {loading ? (
+              <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 2 }} />
+            ) : (
+              <StatWidget
+                title="Total Value"
+                amount={fCurrency(stats?.transaction_value || 0, activeCurrency)}
+                variant="primary"
+                icon={<Iconify icon="eva:diagonal-arrow-left-down-fill" width={32} />}
+              />
+            )}
           </Grid>
           <Grid item xs={12} md={4}>
-            <StatWidget
-              title="Transaction Volume"
-              amount={totalVolume}
-              variant="info"
-              icon={<Iconify icon="eva:layers-fill" width={32} />}
-            />
+            {loading ? (
+              <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 2 }} />
+            ) : (
+              <StatWidget
+                title="Total Volume"
+                amount={stats?.transaction_volume || 0}
+                variant="info"
+                icon={<Iconify icon="eva:layers-fill" width={32} />}
+              />
+            )}
           </Grid>
           <Grid item xs={12} md={4}>
-            <StatWidget
-              title="Total Fees"
-              amount={formatValue(totalFees)}
-              variant="warning"
-              icon={<Iconify icon="eva:pie-chart-2-fill" width={32} />}
-            />
+            {loading ? (
+              <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 2 }} />
+            ) : (
+              <StatWidget
+                title="Total Fees"
+                amount={fCurrency(stats?.transaction_fee || 0, activeCurrency)}
+                variant="warning"
+                icon={<Iconify icon="eva:pie-chart-2-fill" width={32} />}
+              />
+            )}
           </Grid>
         </Grid>
 
         <Card>
           <TransactionTableToolbar
-            filterName={filterName}
-            startDate={filterStartDate}
-            endDate={filterEndDate}
-            onFilterName={(e) => {
-              setPage(0);
-              setFilterName(e.target.value);
-            }}
-            onChangeStartDate={(e) => {
-              setPage(0);
-              setFilterStartDate(e.target.value);
-            }}
-            onChangeEndDate={(e) => {
-              setPage(0);
-              setFilterEndDate(e.target.value);
-            }}
+            filterName={localFilters.name}
+            startDate={localFilters.startDate}
+            endDate={localFilters.endDate}
+            filterStatus={localFilters.status}
+            filterType={localFilters.type}
+            onFilterName={(e) => setLocalFilters({ ...localFilters, name: e.target.value })}
+            onChangeStartDate={(e) =>
+              setLocalFilters({ ...localFilters, startDate: e.target.value })
+            }
+            onChangeEndDate={(e) => setLocalFilters({ ...localFilters, endDate: e.target.value })}
+            onFilterStatus={(e) => setLocalFilters({ ...localFilters, status: e.target.value })}
+            onFilterType={(e) => setLocalFilters({ ...localFilters, type: e.target.value })}
+            onSubmit={handleFilterSubmit}
           />
 
           <TableContainer sx={{ position: 'relative', overflow: 'unset' }}>
             <Scrollbar>
-              <Table sx={{ minWidth: 800 }}>
+              <Table sx={{ minWidth: 1100 }}>
                 <TableHeadCustom
                   order={order}
                   orderBy={orderBy}
@@ -277,58 +327,82 @@ export default function PageFive() {
                   onSort={onSort}
                 />
                 <TableBody>
-                  {dataFiltered
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((row: Transaction) => (
-                      <TableRow
-                        hover
-                        key={row.id}
-                        component="tr"
-                        onClick={() => {
-                          setSelectedTransaction(row);
-                          setOpenDrawer(true);
-                        }}
-                        sx={{ cursor: 'pointer' }}
-                      >
-                        <TableCell sx={{ typography: 'subtitle2' }}>{row.id}</TableCell>
-                        <TableCell>{fDate(row.date)}</TableCell>
-                        <TableCell>{formatValue(row.amount)}</TableCell>
-                        <TableCell>
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              px: 1,
-                              py: 0.5,
-                              borderRadius: 0.75,
-                              fontWeight: 'bold',
-                              textTransform: 'capitalize',
-                              bgcolor: (theme) =>
-                                row.status === 'completed'
-                                  ? theme.palette.success.lighter
-                                  : theme.palette.warning.lighter,
-                              color: (theme) =>
-                                row.status === 'completed'
-                                  ? theme.palette.success.darker
-                                  : theme.palette.warning.darker,
-                            }}
-                          >
-                            {row.status}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          <IconButton onClick={(e) => handleGoToDetails(e, row.id)} color="primary">
-                            <Iconify icon="eva:arrow-forward-fill" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  <TableNoData isNotFound={!dataFiltered.length} />
+                  {loading ? (
+                    [...Array(rowsPerPage)].map((_, i) => (
+                      <TableSkeleton key={i} sx={{ height: 72 }} />
+                    ))
+                  ) : (
+                    <>
+                      {tableData.map((row) => (
+                        <TableRow
+                          key={row.id}
+                          hover
+                          onClick={() => {
+                            setSelectedTransaction(row);
+                            setOpenDrawer(true);
+                          }}
+                          sx={{ cursor: 'pointer' }}
+                        >
+                          <TableCell sx={{ typography: 'subtitle2' }}>{row.reference}</TableCell>
+                          <TableCell sx={{ textTransform: 'capitalize' }}>
+                            {row.category?.replace('_', ' ')}
+                          </TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                            {fDate(row.created_at)}
+                          </TableCell>
+
+                          <TableCell sx={{ fontWeight: 'bold' }}>
+                            {row.currency}
+                          </TableCell>
+
+                          <TableCell sx={{ fontWeight: 'bold' }}>
+                            {fCurrency(row.amount, row.currency)}
+                          </TableCell>
+                          <TableCell sx={{ color: 'error.main' }}>
+                            {fCurrency(row.fee, row.currency)}
+                          </TableCell>
+                          <TableCell sx={{ color: 'text.secondary', typography: 'caption' }}>
+                            {fCurrency(row.balance_before, row.currency)}
+                          </TableCell>
+                          <TableCell sx={{ typography: 'subtitle2', color: 'primary.main' }}>
+                            {fCurrency(row.balance_after, row.currency)}
+                          </TableCell>
+                          <TableCell>
+                            <Label
+                              color={
+                                row.status === 'success' || row.status === 'completed'
+                                  ? 'success'
+                                  : row.status === 'pending'
+                                  ? 'warning'
+                                  : 'error'
+                              }
+                            >
+                              {row.status}
+                            </Label>
+                          </TableCell>
+                          <TableCell align="right">
+                            <IconButton
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                push(`/dashboard/transactions/${row.id}/details`);
+                              }}
+                              color="primary"
+                            >
+                              <Iconify icon="eva:arrow-forward-fill" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      <TableNoData isNotFound={!tableData.length && !loading} />
+                    </>
+                  )}
                 </TableBody>
               </Table>
             </Scrollbar>
           </TableContainer>
+
           <TablePaginationCustom
-            count={dataFiltered.length}
+            count={totalRecords}
             page={page}
             rowsPerPage={rowsPerPage}
             onPageChange={onChangePage}
@@ -337,11 +411,12 @@ export default function PageFive() {
         </Card>
       </Container>
 
+      {/* Drawer and Helper Components remain the same as previous step */}
       <Drawer
         anchor="right"
         open={openDrawer}
         onClose={() => setOpenDrawer(false)}
-        PaperProps={{ sx: { width: { xs: 1, sm: 400 } } }}
+        PaperProps={{ sx: { width: { xs: 1, sm: 450 } } }}
       >
         {selectedTransaction && (
           <Box sx={{ p: 3 }}>
@@ -358,25 +433,44 @@ export default function PageFive() {
             </Stack>
             <Stack spacing={3}>
               <Box
-                sx={{ p: 2, bgcolor: 'background.neutral', borderRadius: 2, textAlign: 'center' }}
+                sx={{ p: 3, bgcolor: 'background.neutral', borderRadius: 2, textAlign: 'center' }}
               >
                 <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-                  Amount
+                  Amount ({selectedTransaction.currency})
                 </Typography>
                 <Typography variant="h3" sx={{ color: 'primary.main' }}>
-                  {formatValue(selectedTransaction.amount)}
+                  {fCurrency(selectedTransaction.amount, selectedTransaction.currency)}
                 </Typography>
               </Box>
               <Stack spacing={2}>
-                <DetailRow label="Reference ID" value={selectedTransaction.id} />
-                <DetailRow label="Date" value={fDate(selectedTransaction.date)} />
-                <DetailRow label="Status" value={selectedTransaction.status} isStatus />
+                <DetailRow label="Reference" value={selectedTransaction.reference} />
+                <DetailRow
+                  label="Category"
+                  value={selectedTransaction.category?.replace('_', ' ')}
+                />
+                <DetailRow label="Date" value={fDate(selectedTransaction.created_at)} />
+                <DetailRow
+                  label="Fee"
+                  value={fCurrency(selectedTransaction.fee, selectedTransaction.currency)}
+                />
                 <Divider sx={{ borderStyle: 'dashed' }} />
-                <DetailRow label="Payment Method" value={selectedTransaction.method} />
+                <DetailRow
+                  label="Balance Before"
+                  value={fCurrency(
+                    selectedTransaction.balance_before,
+                    selectedTransaction.currency
+                  )}
+                />
+                <DetailRow
+                  label="Balance After"
+                  value={fCurrency(selectedTransaction.balance_after, selectedTransaction.currency)}
+                />
+                <DetailRow label="Status" value={selectedTransaction.status} />
               </Stack>
               <Button
                 fullWidth
                 variant="contained"
+                size="large"
                 onClick={() => push(`/dashboard/transactions/${selectedTransaction.id}/details`)}
               >
                 View Full Details
@@ -389,58 +483,37 @@ export default function PageFive() {
   );
 }
 
-function DetailRow({
-  label,
-  value,
-  isStatus,
-}: {
-  label: string;
-  value: string;
-  isStatus?: boolean;
-}) {
+// ----------------------------------------------------------------------
+
+function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <Stack direction="row" justifyContent="space-between">
       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
         {label}
       </Typography>
-      <Typography variant="subtitle2" sx={{ textTransform: isStatus ? 'capitalize' : 'none' }}>
+      <Typography variant="subtitle2" sx={{ textTransform: 'capitalize' }}>
         {value}
       </Typography>
     </Stack>
   );
 }
 
-function applyFilter({
-  inputData,
-  comparator,
-  filterName,
-  filterStartDate,
-  filterEndDate,
-}: {
-  inputData: Transaction[];
-  comparator: (a: any, b: any) => number;
-  filterName: string;
-  filterStartDate: string;
-  filterEndDate: string;
-}) {
-  const stabilizedThis = inputData.map((el, index) => [el, index] as const);
-  stabilizedThis.sort((a, b) => {
-    const order = comparator(a[0], b[0]);
-    if (order !== 0) return order;
-    return a[1] - b[1];
-  });
-  inputData = stabilizedThis.map((el) => el[0]);
-  if (filterName) {
-    inputData = inputData.filter((item) =>
-      item.id.toLowerCase().includes(filterName.toLowerCase())
-    );
-  }
-  if (filterStartDate && filterEndDate) {
-    inputData = inputData.filter(
-      (item) =>
-        new Date(item.date) >= new Date(filterStartDate) &&
-        new Date(item.date) <= new Date(filterEndDate)
-    );
-  }
-  return inputData;
+function Label({ children, color }: { children: React.ReactNode; color: any }) {
+  return (
+    <Box
+      sx={{
+        px: 1,
+        py: 0.5,
+        borderRadius: 0.75,
+        typography: 'caption',
+        fontWeight: 'bold',
+        textTransform: 'capitalize',
+        display: 'inline-flex',
+        bgcolor: (theme: any) => theme.palette[color].lighter,
+        color: (theme: any) => theme.palette[color].darker,
+      }}
+    >
+      {children}
+    </Box>
+  );
 }

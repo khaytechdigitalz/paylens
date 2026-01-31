@@ -1,14 +1,14 @@
+/* eslint-disable no-cond-assign */
+/* eslint-disable no-constant-condition */
 import { useState } from 'react';
 // @mui
 import { styled, useTheme, Theme } from '@mui/material/styles';
-import { Box, Typography, Stack, MenuItem, IconButton, SxProps, alpha } from '@mui/material';
+import { Box, Typography, Stack, IconButton, SxProps, alpha } from '@mui/material';
 // utils
 import { bgGradient } from '../../utils/cssStyles';
 import { fCurrency } from '../../utils/formatNumber';
 // components
-import Image from '../../components/image';
 import Iconify from '../../components/iconify';
-import MenuPopover from '../../components/menu-popover';
 import Carousel, { CarouselDots } from '../../components/carousel';
 
 // ----------------------------------------------------------------------
@@ -58,9 +58,10 @@ type ItemProps = {
   id: string;
   cardType: string;
   balance: number;
-  cardHolder: string;
-  cardNumber: string;
-  cardValid: string;
+  currency: string;
+  symbol: string;
+  wallet_type: string;
+  wallet_address: string;
 };
 
 type Props = {
@@ -118,53 +119,16 @@ type CardItemProps = {
 };
 
 function CardItem({ card }: CardItemProps) {
-  const { id, cardType, balance, cardHolder, cardNumber, cardValid } = card;
-
+  const { balance, wallet_type, wallet_address, symbol, currency } = card;
+    
   const [showCurrency, setShowCurrency] = useState(false);
-
-  const [openPopover, setOpenPopover] = useState<HTMLElement | null>(null);
 
   const handleShowCurrency = () => {
     setShowCurrency(!showCurrency);
   };
-
-  const handleOpenPopover = (event: React.MouseEvent<HTMLElement>) => {
-    setOpenPopover(event.currentTarget);
-  };
-
-  const handleClosePopover = () => {
-    setOpenPopover(null);
-  };
-
-  const handleDelete = () => {
-    handleClosePopover();
-    console.log('DELETE', id);
-  };
-
-  const handleEdit = () => {
-    handleClosePopover();
-    console.log('EDIT', id);
-  };
-
-  return (
-    <>
+ 
+  return ( 
       <StyledCard>
-        <IconButton
-          color="inherit"
-          onClick={handleOpenPopover}
-          sx={{
-            top: 16,
-            right: 16,
-            zIndex: 9,
-            opacity: 0.48,
-            position: 'absolute',
-            ...(openPopover && {
-              opacity: 1,
-            }),
-          }}
-        >
-          <Iconify icon="eva:more-vertical-fill" />
-        </IconButton>
 
         <div>
           <Typography sx={{ mb: 2, typography: 'subtitle2', opacity: 0.72 }}>
@@ -173,7 +137,7 @@ function CardItem({ card }: CardItemProps) {
 
           <Stack direction="row" alignItems="center" spacing={1}>
             <Typography sx={{ typography: 'h3' }}>
-              {showCurrency ? '********' : fCurrency(balance)}
+              {symbol} {showCurrency ? '********' : fCurrency(balance)}
             </Typography>
 
             <IconButton color="inherit" onClick={handleShowCurrency} sx={{ opacity: 0.48 }}>
@@ -183,48 +147,30 @@ function CardItem({ card }: CardItemProps) {
         </div>
 
         <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={1}>
-          <Image
-            disabledEffect
-            alt="credit-card"
-            src={`/assets/icons/payments/ic_${
-              cardType === 'mastercard' ? 'mastercard' : 'visa'
-            }.svg`}
-            sx={{ height: 24 }}
-          />
+           
 
-          <Typography sx={{ typography: 'subtitle1', textAlign: 'right' }}>{cardNumber}</Typography>
+          <Typography sx={{ typography: 'subtitle1', textAlign: 'right' }}>
+            {wallet_address}
+          </Typography>
         </Stack>
 
         <Stack direction="row" spacing={5}>
           <div>
             <Typography sx={{ mb: 1, typography: 'caption', opacity: 0.48 }}>
-              Card Holder
+              Type
             </Typography>
 
-            <Typography sx={{ typography: 'subtitle1' }}>{cardHolder}</Typography>
+            <Typography sx={{ typography: 'Wallet Type' }}>{wallet_type}</Typography>
           </div>
 
           <div>
             <Typography sx={{ mb: 1, typography: 'caption', opacity: 0.48 }}>
-              Valid Dates
+              Currency
             </Typography>
 
-            <Typography sx={{ typography: 'subtitle1' }}>{cardValid}</Typography>
+            <Typography sx={{ typography: 'Wallet ID' }}>{currency}</Typography>
           </div>
         </Stack>
       </StyledCard>
-
-      <MenuPopover open={openPopover} onClose={handleClosePopover}>
-        <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
-          <Iconify icon="eva:trash-2-outline" />
-          Delete card
-        </MenuItem>
-
-        <MenuItem onClick={handleEdit}>
-          <Iconify icon="eva:edit-fill" />
-          Edit card
-        </MenuItem>
-      </MenuPopover>
-    </>
   );
 }
