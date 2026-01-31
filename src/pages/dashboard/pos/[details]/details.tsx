@@ -527,7 +527,6 @@ function InfoItem({
   value: any;
   isStatus?: boolean;
 }) {
-  const theme = useTheme();
   return (
     <Stack direction="row" justifyContent="space-between" alignItems="center">
       <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 'bold' }}>

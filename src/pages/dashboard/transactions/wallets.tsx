@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState } from 'react';
 import * as XLSX from 'xlsx';
 import Head from 'next/head';
@@ -96,11 +97,11 @@ RefundHistoryPage.getLayout = (page: React.ReactElement) => (
 export default function RefundHistoryPage() {
   const { push } = useRouter();
   const { themeStretch } = useSettingsContext();
-  const { page, order, orderBy, rowsPerPage, setPage, onSort, onChangePage, onChangeRowsPerPage } =
+  const { page, order, orderBy, rowsPerPage, onSort, onChangePage, onChangeRowsPerPage } =
     useTable();
 
   // Filters & State
-  const [filterName, setFilterName] = useState('');
+  const [filterName] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
   const [currency, setCurrency] = useState('USD');
@@ -216,23 +217,7 @@ export default function RefundHistoryPage() {
         </Grid>
 
         <Card>
-          <TransactionTableToolbar
-            filterName={filterName}
-            startDate={filterStartDate}
-            endDate={filterEndDate}
-            onFilterName={(e) => {
-              setPage(0);
-              setFilterName(e.target.value);
-            }}
-            onChangeStartDate={(e) => {
-              setPage(0);
-              setFilterStartDate(e.target.value);
-            }}
-            onChangeEndDate={(e) => {
-              setPage(0);
-              setFilterEndDate(e.target.value);
-            }}
-          />
+           
 
           <TableContainer sx={{ position: 'relative', overflow: 'unset' }}>
             <Scrollbar>

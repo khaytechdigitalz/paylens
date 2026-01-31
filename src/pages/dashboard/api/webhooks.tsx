@@ -39,7 +39,6 @@ import {
 // utils
 import { fDateTime } from '../../../utils/formatTime';
 // Internal Component (Toolbar for filtering)
-import { TransactionTableToolbar } from '../transactions/TransactionTableToolbar';
 
 // ----------------------------------------------------------------------
 
@@ -106,11 +105,11 @@ WebhookLogsPage.getLayout = (page: React.ReactElement) => <DashboardLayout>{page
 
 export default function WebhookLogsPage() {
   const { themeStretch } = useSettingsContext();
-  const { page, order, orderBy, rowsPerPage, setPage, onSort, onChangePage, onChangeRowsPerPage } =
+  const { page, order, orderBy, rowsPerPage,  onSort, onChangePage, onChangeRowsPerPage } =
     useTable();
 
   // Filter States
-  const [filterName, setFilterName] = useState('');
+  const [filterName] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
   // Drawer States
@@ -154,16 +153,7 @@ export default function WebhookLogsPage() {
             ))}
           </Tabs>
 
-          <TransactionTableToolbar
-                      filterName={filterName}
-                      onFilterName={(e) => {
-                          setPage(0);
-                          setFilterName(e.target.value);
-                      } } startDate={''} endDate={''} onChangeStartDate={function (): void {
-                          throw new Error('Function not implemented.');
-                      } } onChangeEndDate={function (event: React.ChangeEvent<HTMLInputElement>): void {
-                          throw new Error('Function not implemented.');
-                      } }          />
+          
 
           <TableContainer sx={{ position: 'relative', overflow: 'unset' }}>
             <Scrollbar>
