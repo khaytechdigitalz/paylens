@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/edubiller/:path*",
+      "destination": "https://api.edubiller.com/api/user/:path*"
+    }
+  ]
+}
