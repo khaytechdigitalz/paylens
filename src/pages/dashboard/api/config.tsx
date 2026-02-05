@@ -301,7 +301,7 @@ const router = useRouter();
                     proceed.
                   </Typography>
                   <Button
-                    onClick={() => router.push('/api/doc')} // Added 'router.'
+                    onClick={() => router.push('/documentation/overview')} // Added 'router.'
                     variant="outlined"
                     color="warning"
                     fullWidth

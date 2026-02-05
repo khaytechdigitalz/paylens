@@ -1,5 +1,7 @@
 // @mui
 import { Stack, Button, Typography, Box } from '@mui/material';
+import { useRouter } from 'next/navigation'; // Use 'next/router' if using Pages Router
+
 // auth
 import { useAuthContext } from '../../../auth/useAuthContext';
 // locales
@@ -9,6 +11,7 @@ import { useLocales } from '../../../locales';
 
 export default function NavDocs() {
   const { user } = useAuthContext();
+   const router = useRouter();
 
   const { translate } = useLocales();
 
@@ -36,7 +39,10 @@ export default function NavDocs() {
         </Typography>
       </div>
 
-      <Button variant="contained">{`${translate('docs.documentation')}`}</Button>
+      <Button
+        onClick={() => router.push('/documentation/overview')} // Added 'router.'
+        variant="contained"
+      >{`${translate('docs.documentation')}`}</Button>
     </Stack>
   );
 }

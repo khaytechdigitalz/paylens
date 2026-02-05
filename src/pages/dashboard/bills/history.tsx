@@ -1,6 +1,6 @@
 /* eslint-disable react/jsx-curly-brace-presence */
 /* eslint-disable import/extensions */
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import * as XLSX from 'xlsx';

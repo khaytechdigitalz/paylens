@@ -73,7 +73,7 @@ export default function PaymentLinkPage() {
   const { enqueueSnackbar } = useSnackbar();
   const { themeStretch } = useSettingsContext();
 
-  const { page, order, orderBy, rowsPerPage, onSort, onChangePage, onChangeRowsPerPage } =
+  const { page, rowsPerPage, onSort, onChangePage, onChangeRowsPerPage } =
     useTable();
 
   const isTestMode = user?.mode === 'test';

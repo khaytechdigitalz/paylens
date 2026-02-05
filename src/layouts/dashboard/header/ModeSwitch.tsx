@@ -4,7 +4,6 @@ import { Stack, Switch, Typography, Box, Tooltip, alpha, CircularProgress } from
 import { styled } from '@mui/material/styles';
 // components
 import { useSnackbar } from '../../../components/snackbar';
-import Iconify from '../../../components/iconify';
 // utils
 import axios from '../../../utils/axios';
 // auth

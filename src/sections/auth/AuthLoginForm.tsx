@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import * as Yup from 'yup';
+import { useRouter } from 'next/router';
 // form
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -22,6 +23,7 @@ type FormValuesProps = {
 
 export default function AuthLoginForm() {
   const { login } = useAuthContext();
+  const { push } = useRouter();
 
   const [showPassword, setShowPassword] = useState(false);
 
@@ -31,7 +33,7 @@ export default function AuthLoginForm() {
   });
 
   const defaultValues = {
-    email: 'admin@admin.com',
+    email: 'test@test.com',
     password: 'test1234',
   };
 
@@ -86,7 +88,7 @@ export default function AuthLoginForm() {
       </Stack>
 
       <Stack alignItems="flex-end" sx={{ my: 2 }}>
-        <Link variant="body2" color="inherit" underline="always">
+        <Link onClick={() => push('/forgotpassword')}  variant="body2" color="inherit" underline="always">
           Forgot password?
         </Link>
       </Stack>

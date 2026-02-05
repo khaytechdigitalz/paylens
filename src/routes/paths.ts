@@ -10,7 +10,9 @@ const ROOTS_DASHBOARD = '/dashboard';
 
 export const PATH_AUTH = {
   login: '/login',
-  api: '/api/documentation',
+  register: '/register',
+  forgotpassword: '/forgotpassword',
+  api: '/documentation/overview',
 };
 
 export const PATH_DASHBOARD = {
