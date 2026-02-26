@@ -18,10 +18,10 @@ const Logo = forwardRef<HTMLDivElement, LogoProps>(
       <Box
         ref={ref}
         component="img" // Change this from "div" to "img"
-        src="/assets/logo/logo.png"
+        src="/assets/logo/credot.png"
         sx={{
-          width: 40,
-          height: 40,
+          width:150,
+          height: 60,
           display: 'inline-flex',
           objectFit: 'contain', // Ensures the logo isn't stretched
           ...sx,

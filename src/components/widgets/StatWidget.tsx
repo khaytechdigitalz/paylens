@@ -86,7 +86,7 @@ export default function StatWidget({
 
           <Box sx={{ textAlign: 'right' }}>
             <Typography variant="h3" sx={{ fontWeight: 800 }}>
-              {isCurrency ? fCurrency(amount) : fShortenNumber(amount)}
+              ₦{fCurrency(amount)}
             </Typography>
             <Typography variant="subtitle2" sx={{ color: 'text.secondary', opacity: 0.8 }}>
               Total {title.split(' ')[1] || ''}

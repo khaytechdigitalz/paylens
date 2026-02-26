@@ -21,7 +21,7 @@ import {
 import { fCurrency } from '../../utils/formatNumber';
 // components
 import Label from '../../components/label';
-import Iconify, { IconifyProps } from '../../components/iconify';
+import Iconify from '../../components/iconify';
 import Scrollbar from '../../components/scrollbar';
 import { TableHeadCustom } from '../../components/table';
 

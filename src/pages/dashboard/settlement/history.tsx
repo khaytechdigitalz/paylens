@@ -183,7 +183,7 @@ export default function SettlementPage() {
               size="small"
               color="primary"
             >
-              {['NGN', 'USD', 'GBP'].map((curr) => (
+              {['NGN'].map((curr) => (
                 <ToggleButton key={curr} value={curr} sx={{ fontWeight: 'bold', px: 2 }}>
                   {curr}
                 </ToggleButton>
@@ -207,7 +207,6 @@ export default function SettlementPage() {
             <Button
               key={label}
               size="small"
-              variant="soft"
               onClick={() =>
                 handleQuickDate(
                   label === 'Today' ? 'today' : label === 'Last 7 Days' ? 'seven_days' : 'month'
@@ -226,7 +225,7 @@ export default function SettlementPage() {
               title="Total Settled"
               amount={loading ? <Skeleton /> : summary?.total_settled || 0}
               icon={<Iconify icon="eva:checkmark-circle-2-fill" width={32} />}
-              variant="success"
+              variant="primary"
             />
           </Grid>
           <Grid item xs={12} md={3}>
@@ -242,7 +241,7 @@ export default function SettlementPage() {
               title="Total Fees"
               amount={loading ? <Skeleton /> : summary?.total_fee || 0}
               icon={<Iconify icon="eva:scissors-fill" width={32} />}
-              variant="error"
+              variant="primary"
             />
           </Grid>
           <Grid item xs={12} md={3}>
@@ -250,7 +249,7 @@ export default function SettlementPage() {
               title="Transaction Count"
               amount={loading ? <Skeleton /> : summary?.transaction_count || 0}
               icon={<Iconify icon="eva:layers-fill" width={32} />}
-              variant="info"
+              variant="primary"
             />
           </Grid>
         </Grid>

@@ -156,7 +156,7 @@ export default function BillsHistoryPage() {
   return (
     <>
       <Head>
-        <title>Bills History | PayLens</title>
+        <title>Bills History | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>
@@ -183,7 +183,7 @@ export default function BillsHistoryPage() {
             const categoryData = stats?.categories?.[apiType];
 
             return (
-              <Grid item xs={12} sm={6} md={3} key={service.title}>
+              <Grid item xs={12} sm={6} md={6} key={service.title}>
                 <StatWidget
                   title={service.title}
                   amount={fCurrency(categoryData?.total_amount || 0, 'NGN')}

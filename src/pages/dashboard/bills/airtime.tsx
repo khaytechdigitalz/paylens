@@ -106,7 +106,7 @@ export default function AirtimePage() {
       setResult({
         message: response.data.message,
         balance: response.data.balance_after,
-        ref: response.data.payout_ref,
+        ref: response.data.reference,
       });
       setShowSuccess(true);
     } catch (error: any) {
@@ -377,7 +377,7 @@ export default function AirtimePage() {
                 REMAINING BALANCE
               </Typography>
               <Typography variant="h6" color="primary.main">
-                {fCurrency(result?.balance || 0, 'NGN')}
+                ₦{fCurrency(result?.balance || 0, 'NGN')}
               </Typography>
             </Stack>
           </Paper>

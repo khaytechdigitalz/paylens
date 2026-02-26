@@ -25,6 +25,8 @@ export default function NavAccount() {
   const { user } = useAuthContext();
 
   return (
+    <>
+    {/*
     <Link underline="none" color="inherit">
       <StyledRoot>
         <CustomAvatar src={user?.avatar} alt={user?.displayName} name={user?.name} />
@@ -40,5 +42,6 @@ export default function NavAccount() {
         </Box>
       </StyledRoot>
     </Link>
+    */}</>
   );
 }

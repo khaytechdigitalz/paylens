@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 // @mui
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
+import router, { useRouter } from 'next/router';
 import {
   Grid,
   Typography,
@@ -11,8 +12,9 @@ import {
   Stack,
   Skeleton,
   Box,
-  ToggleButtonGroup,
-  ToggleButton,
+  Card,
+  Avatar,
+  IconButton,
 } from '@mui/material';
 
 // utils
@@ -26,57 +28,43 @@ import Iconify from '../../components/iconify';
 // sections
 import {
   BankingInviteFriends,
-  BankingCurrentBalance,
   BankingBalanceStatistics,
   BankingRecentTransitions,
   BankingExpensesCategories,
 } from '../../sections/dashboard';
-import StatWidget from '../../components/widgets/StatWidget';
+import { useAuthContext } from '../../auth/useAuthContext';
 
 // ----------------------------------------------------------------------
-
-export type RowProps = {
-  id: number;
-  reference: string;
-  amount: string | number;
-  type: string;
-  category: string;
-  status: string;
-  created_at: string;
-  description: string;
-  currency?: string;
-};
-
-interface Wallet {
-  id: string;
-  currency: string;
-  balance: number;
-}
-
-interface Stats {
-  totaloutflow: string | number;
-  totalinflow: string | number;
-}
 
 PageOne.getLayout = (page: React.ReactElement) => <DashboardLayout>{page}</DashboardLayout>;
-
-// ----------------------------------------------------------------------
 
 export default function PageOne() {
   const { themeStretch } = useSettingsContext();
   const theme = useTheme();
+  const { user } = useAuthContext();
+  const [isLive, setIsLive] = useState(user?.mode === 'live');
 
-  const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [stats, setStats] = useState<Stats>({ totalinflow: 0, totaloutflow: 0 });
-  const [chartData, setChartData] = useState<any>(null);
-  const [transactions, setTransactions] = useState<RowProps[]>([]);
+  // Sync local state with AuthContext on refresh or user change
+  useEffect(() => {
+    if (user?.mode) {
+      setIsLive(user.mode === 'live');
+    }
+  }, [user?.mode]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [showBalance, setShowBalance] = useState<boolean>(true); // State for eye toggle
 
+  const [wallets, setWallets] = useState<any[]>([]);
+  const [stats, setStats] = useState({ totalinflow: 0, totaloutflow: 0 });
+  const [transactions, setTransactions] = useState([]);
+  const [chartData, setChartData] = useState<any>(null);
+
+  // 1. Data Fetching
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
         const res = await axios.get('/dashboard');
+
         if (res.data?.data) {
           const d = res.data.data;
           setWallets(d.wallets || []);
@@ -94,7 +82,7 @@ export default function PageOne() {
           });
         }
       } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
+        console.error('Dashboard Load Error:', error);
       } finally {
         setLoading(false);
       }
@@ -102,123 +90,158 @@ export default function PageOne() {
     fetchDashboardData();
   }, []);
 
+  // Use the balance from the first wallet as the primary balance
+  const primaryBalance = wallets.length > 0 ? wallets[0].balance : 0;
+
   const formatSeries = (data: any) => {
     const base = Array(12).fill(0);
     if (Array.isArray(data)) {
       data.forEach((val, index) => {
         if (index < 12) base[index] = Number(val);
       });
-    } else if (data) {
-      base[0] = Number(data);
     }
     return base;
   };
 
+  if (loading) {
+    return (
+      <Container maxWidth={themeStretch ? false : 'xl'}>
+        <Stack spacing={3}>
+          <Skeleton variant="rectangular" height={240} sx={{ borderRadius: 3 }} />
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={8}>
+              <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
+            </Grid>
+          </Grid>
+        </Stack>
+      </Container>
+    );
+  }
+
   return (
     <>
       <Head>
-        <title> Business Dashboard | PayLens</title>
+        <title>Command Center | PayLens</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>
-        {/* Header Section */}
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={2}
-          alignItems={{ xs: 'flex-start', sm: 'center' }}
-          justifyContent="space-between"
-          sx={{ mb: 5 }}
-        >
-          <Box>
-            <Typography variant="h3">Bills History</Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Filter and manage your utility payments.
-            </Typography>
-          </Box>
-
-          <ToggleButtonGroup value="NGN" exclusive size="small" color="primary">
-            {['NGN', 'USD', 'GBP'].map((lib) => (
-              <ToggleButton key={lib} value={lib} sx={{ fontWeight: 'bold', px: 2 }}>
-                {lib}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
-        </Stack>
-
         <Grid container spacing={3}>
-          {/* Top Row: Wallet & Quick Stats */}
-          <Grid item xs={12} md={5}>
-            {loading ? (
-              <Skeleton variant="rectangular" height={240} sx={{ borderRadius: 2 }} />
-            ) : (
-              <BankingCurrentBalance list={wallets as any[]} />
-            )}
-          </Grid>
-
-          <Grid item xs={12} md={7}>
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={1.5}
-              sx={{ mb: 3, justifyContent: { xs: 'center', md: 'flex-end' } }}
+          {/* HERO: ACCOUNT BALANCE & TOGGLE */}
+          <Grid item xs={12}>
+            <Box
+              sx={{
+                p: { xs: 3, md: 5 },
+                borderRadius: 3,
+                position: 'relative',
+                overflow: 'hidden',
+                background: `linear-gradient(25deg, ${theme.palette.grey[900]} 0%, ${theme.palette.primary.darker} 100%)`,
+                color: 'common.white',
+                boxShadow: theme.customShadows.z24,
+              }}
             >
-              <Button
-                fullWidth={{ xs: true, sm: false } as any}
-                variant="contained"
-                startIcon={<Iconify icon="solar:code-circle-bold" />}
-              >
-                API
-              </Button>
-              <Button
-                fullWidth={{ xs: true, sm: false } as any}
-                variant="contained"
-                startIcon={<Iconify icon="solar:add-circle-bold" />}
-              >
-                Transfer
-              </Button>
-              <Button
-                fullWidth={{ xs: true, sm: false } as any}
-                variant="contained"
-                startIcon={<Iconify icon="solar:add-circle-bold" />}
-              >
-                Bills
-              </Button>
-            </Stack>
+              <Box
+                sx={{
+                  position: 'absolute',
+                  right: '-5%',
+                  top: '-10%',
+                  width: 350,
+                  height: 350,
+                  borderRadius: '50%',
+                  background: alpha(theme.palette.primary.main, 0.2),
+                  filter: 'blur(80px)',
+                }}
+              />
 
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                {loading ? (
-                  <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 2 }} />
-                ) : (
-                  <StatWidget
-                    title="Total Inflow"
-                    amount={fCurrency(stats.totalinflow, 'NGN')}
-                    variant="primary"
-                    icon={<Iconify icon="solar:bill-list-bold-duotone" width={32} />}
-                  />
-                )}
+              <Grid container spacing={3} alignItems="center">
+                <Grid item xs={12} md={6}>
+                  <Stack spacing={1}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <Typography variant="overline" sx={{ opacity: 0.6, letterSpacing: 2 }}>
+                        Total Account Balance
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() => setShowBalance(!showBalance)}
+                        sx={{ color: 'common.white', opacity: 0.6 }}
+                      >
+                        <Iconify
+                          icon={showBalance ? 'solar:eye-bold' : 'solar:eye-closed-bold'}
+                          width={18}
+                        />
+                      </IconButton>
+                    </Stack>
+
+                    <Typography
+                      variant="h1"
+                      sx={{ fontSize: { xs: '2.5rem', md: '3.8rem' }, fontWeight: 800 }}
+                    >
+                      ₦ {showBalance ? fCurrency(primaryBalance, 'NGN') : '**** ****'}
+                    </Typography>
+
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Box
+                        sx={{
+                          px: 1,
+                          py: 0.5,
+                          borderRadius: 1,
+                          bgcolor: alpha(theme.palette.success.main, 0.15),
+                          color: 'success.light',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                        }}
+                      >
+                        <Iconify
+                          sx={{ color: isLive ? 'success.main' : 'error.main', fontWeight: 'bold' }}
+                          icon="solar:shield-check-bold"
+                          width={14}
+                        />
+                        <Typography
+                          variant="caption"
+                          sx={{ color: isLive ? 'success.main' : 'error.main', fontWeight: 'bold' }}
+                        >
+                          {isLive ? 'LIVE MODE' : 'TEST MODE'}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2" sx={{ opacity: 0.6 }}>
+                        Active Wallet: {wallets[0]?.currency || 'NGN'}
+                      </Typography>
+                    </Stack>
+                  </Stack>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Stack direction="row" spacing={2} justifyContent={{ md: 'flex-end' }}>
+                    <ActionButton
+                      link="bills/history"
+                      icon="solar:square-transfer-horizontal-bold-duotone"
+                      label="Transfer"
+                    />
+                    <ActionButton
+                      link="payout/history"
+                      icon="solar:card-send-bold-duotone"
+                      label="Pay Bills"
+                    />
+                    <ActionButton
+                      link="pos/history"
+                      icon="solar:add-circle-bold-duotone"
+                      label="Request POS"
+                    />
+                  </Stack>
+                </Grid>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                {loading ? (
-                  <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 2 }} />
-                ) : (
-                  <StatWidget
-                    title="Total Outflow"
-                    amount={fCurrency(stats.totaloutflow, 'NGN')}
-                    variant="error"
-                    icon={<Iconify icon="solar:check-circle-bold-duotone" width={32} />}
-                  />
-                )}
-              </Grid>
-            </Grid>
+            </Box>
           </Grid>
 
-          {/* Middle Row: Main Chart & Referral Sidebar */}
+          {/* LEFT CONTENT: ANALYTICS & LEDGER */}
           <Grid item xs={12} md={8}>
-            {loading ? (
-              <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
-            ) : (
+            <Stack spacing={3}>
               <BankingBalanceStatistics
-                title="Transaction Statistics"
+                title="Financial Velocity"
+                subheader="Annual Cashflow Analysis"
                 chart={{
                   categories: [
                     'Jan',
@@ -239,67 +262,115 @@ export default function PageOne() {
                     {
                       type: 'Year',
                       data: [
-                        { name: 'Income', data: formatSeries(chartData?.inflow) },
-                        { name: 'Expenses', data: formatSeries(chartData?.outflow) },
+                        { name: 'Total Inflow', data: formatSeries(chartData?.inflow) },
+                        { name: 'Total Outflow', data: formatSeries(chartData?.outflow) },
                       ],
                     },
                   ],
                 }}
               />
-            )}
-          </Grid>
 
-          <Grid item xs={12} md={4}>
-            {loading ? (
-              <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
-            ) : (
-              <BankingInviteFriends
-                price="50%"
-                title="Refer & Earn"
-                description="Invite friends to earn royalty on fees."
-                img="/assets/illustrations/characters/character_11.png"
+              <BankingRecentTransitions
+                title="Recent Ledger Activity"
+                tableData={transactions}
+                tableLabels={[
+                  { id: 'description', label: 'Service/Beneficiary' },
+                  { id: 'created_at', label: 'Timestamp' },
+                  { id: 'amount', label: 'Value' },
+                  { id: 'status', label: 'State' },
+                  { id: '' },
+                ]}
               />
-            )}
+            </Stack>
           </Grid>
 
-          {/* Full Width Row: Bills Breakdown */}
-          <Grid item xs={12}>
-            {loading ? (
-              <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 2 }} />
-            ) : (
+          {/* RIGHT CONTENT: INSIGHTS & UTILITIES */}
+          <Grid item xs={12} md={4}>
+            <Stack spacing={3}>
+              {/* Bills Distribution - Now takes priority in sidebar */}
               <BankingExpensesCategories
-                title="Bills Breakdown"
+                title="Category Breakdown"
                 chart={{
                   series: [
-                    { label: 'Airtime', value: Number(chartData?.airtime || 0) },
-                    { label: 'Cable TV', value: Number(chartData?.cabletv || 0) },
-                    { label: 'Internet', value: Number(chartData?.internet || 0) },
-                    { label: 'Electricity', value: Number(chartData?.electricity || 0) },
+                    { label: 'Airtime', value: Number(chartData?.bills?.airtime || 0) },
+                    { label: 'Cable TV', value: Number(chartData?.bills?.cabletv || 0) },
+                    { label: 'Internet', value: Number(chartData?.bills?.internet || 0) },
+                    { label: 'Electricity', value: Number(chartData?.bills?.electricity || 0) },
                   ],
                 }}
               />
-            )}
-          </Grid>
 
-          {/* Full Width Row: Recent Transactions */}
-          <Grid item xs={12}>
-            {loading ? (
-              <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
-            ) : (
-              <BankingRecentTransitions
-                title="Recent Transactions"
-                tableData={transactions}
-                tableLabels={[
-                  { id: 'description', label: 'Description' },
-                  { id: 'created_at', label: 'Date' },
-                  { id: 'amount', label: 'Amount' },
-                  { id: 'status', label: 'Status' },
-                ]}
+              {/* API Status Widget */}
+              <Card
+                sx={{
+                  p: 2.5,
+                  bgcolor: alpha(theme.palette.primary.main, 0.03),
+                  border: `1px dashed ${theme.palette.primary.main}`,
+                  borderRadius: 2,
+                }}
+              >
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
+                    <Iconify icon="solar:key-minimalistic-bold-duotone" />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="subtitle2">API Credentials</Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: 'success.main', fontWeight: 'bold' }}
+                    >
+                      {isLive ? 'Live' : 'Test'} Mode Active
+                    </Typography>
+                  </Box>
+                  <Button size="small" variant="soft" sx={{ ml: 'auto' }}>
+                    View
+                  </Button>
+                </Stack>
+              </Card>
+
+              {/* Referral/Invite */}
+              <BankingInviteFriends
+                price="₦5,000"
+                title="Growth Incentive"
+                img="/assets/illustrations/characters/character_11.png"
+                description="Expand the network. Earn commission on every active referral."
               />
-            )}
+            </Stack>
           </Grid>
         </Grid>
       </Container>
     </>
+  );
+}
+
+// Action Button Component
+function ActionButton({ icon, label, link }: { icon: string; link: string; label: string }) {
+  const theme = useTheme();
+  return (
+    <Stack spacing={1.5} alignItems="center">
+      <Button
+        onClick={() => router.push(link)}
+        variant="soft"
+        sx={{
+          width: 64,
+          height: 64,
+          borderRadius: 2.5,
+          bgcolor: alpha(theme.palette.common.white, 0.1),
+          color: 'common.white',
+          backdropFilter: 'blur(10px)',
+          border: `1px solid ${alpha(theme.palette.common.white, 0.1)}`,
+          '&:hover': {
+            bgcolor: alpha(theme.palette.common.white, 0.2),
+            transform: 'translateY(-3px)',
+          },
+          transition: theme.transitions.create(['transform', 'background-color']),
+        }}
+      >
+        <Iconify icon={icon} width={30} />
+      </Button>
+      <Typography variant="caption" sx={{ fontWeight: 600, opacity: 0.8, fontSize: '0.75rem' }}>
+        {label}
+      </Typography>
+    </Stack>
   );
 }

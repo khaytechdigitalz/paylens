@@ -166,7 +166,7 @@ export default function BusinessSettingsPage() {
                 onChange={(e, v) => setCurrentTab(v)}
                 sx={{ px: 3, bgcolor: alpha(theme.palette.primary.main, 0.03) }}
               >
-                {['NGN', 'USD', 'GBP'].map((tab) => (
+                {['NGN'].map((tab) => (
                   <Tab key={tab} label={tab} value={tab} />
                 ))}
               </Tabs>

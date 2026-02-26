@@ -22,6 +22,7 @@ import {
   Paper,
   Dialog,
   DialogContent,
+  IconButton,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 // layouts
@@ -78,12 +79,11 @@ export default function CableTVPage() {
     fetchProviders();
   }, [fetchProviders]);
 
-  // 2. Fetch Plans when Decoder changes
+  // 2. Fetch Plans - FIXED: Removed setVerifiedName(null) from here
   useEffect(() => {
     if (form.decoder) {
       const fetchPlans = async () => {
         setPlansLoading(true);
-        setVerifiedName(null); // Reset verification if provider changes
         try {
           const response = await axios.post('/bills/cabletv/plans', { decoder: form.decoder });
           setPlans(response.data.data);
@@ -97,7 +97,16 @@ export default function CableTVPage() {
     }
   }, [form.decoder]);
 
-  // 3. Verify Customer
+  // 3. Provider Change Handler - FIXED: Reset logic moved here
+  const handleProviderChange = (networkid: string) => {
+    if (form.decoder !== networkid) {
+      setForm({ ...form, decoder: networkid, plan: '', customer: '', pin: '' });
+      setVerifiedName(null);
+      setPlans([]);
+    }
+  };
+
+  // 4. Verify Customer
   const handleVerifyCustomer = async () => {
     setIsVerifying(true);
     setErrorMessage(null);
@@ -117,9 +126,10 @@ export default function CableTVPage() {
     }
   };
 
-  // 4. Auth Check
+  // 5. Auth Check
   const handleCheckAuth = async () => {
     setLoading(true);
+    setErrorMessage(null);
     try {
       const response = await axios.get('/payouts/check_auth');
       setAuthType(response.data.status === 'pin_required' ? 'pin' : 'otp');
@@ -132,7 +142,7 @@ export default function CableTVPage() {
     }
   };
 
-  // 5. Final Purchase
+  // 6. Final Purchase
   const handleFinalPurchase = async () => {
     setLoading(true);
     setErrorMessage(null);
@@ -178,8 +188,14 @@ export default function CableTVPage() {
         <Grid container spacing={4}>
           <Grid item xs={12} md={7}>
             <Stack spacing={3}>
-              {/* Provider Selection */}
-              <Card sx={{ p: 3 }}>
+              {/* Step 1: Provider Selection */}
+              <Card
+                sx={{
+                  p: 3,
+                  opacity: step === 'auth' ? 0.6 : 1,
+                  pointerEvents: step === 'auth' ? 'none' : 'auto',
+                }}
+              >
                 <Typography variant="subtitle2" sx={{ mb: 2 }}>
                   1. Choose Provider
                 </Typography>
@@ -187,7 +203,7 @@ export default function CableTVPage() {
                   {providers.map((p) => (
                     <Grid item xs={6} sm={4} key={p.networkid}>
                       <CardActionArea
-                        onClick={() => setForm({ ...form, decoder: p.networkid, plan: '' })}
+                        onClick={() => handleProviderChange(p.networkid)}
                         sx={{
                           p: 2,
                           borderRadius: 1.5,
@@ -211,7 +227,7 @@ export default function CableTVPage() {
                 </Grid>
               </Card>
 
-              {/* Input Section */}
+              {/* Step 2: Input Details */}
               <Card sx={{ p: 3 }}>
                 <Typography variant="subtitle2" sx={{ mb: 3 }}>
                   2. Plan & Decoder Details
@@ -223,7 +239,7 @@ export default function CableTVPage() {
                     label="Select Plan"
                     value={form.plan}
                     onChange={(e) => setForm({ ...form, plan: e.target.value })}
-                    disabled={!form.decoder || plansLoading}
+                    disabled={!form.decoder || plansLoading || step === 'auth'}
                   >
                     {plans.map((plan) => (
                       <MenuItem key={plan.variation_code} value={plan.variation_code}>
@@ -244,9 +260,10 @@ export default function CableTVPage() {
                       fullWidth
                       label="Smart Card / IUC Number"
                       value={form.customer}
+                      disabled={step === 'auth'}
                       onChange={(e) => {
                         setForm({ ...form, customer: e.target.value });
-                        setVerifiedName(null);
+                        if (verifiedName) setVerifiedName(null);
                       }}
                       InputProps={{
                         endAdornment: (
@@ -256,7 +273,9 @@ export default function CableTVPage() {
                               color="info"
                               size="small"
                               onClick={handleVerifyCustomer}
-                              disabled={!form.decoder || !form.customer || isVerifying}
+                              disabled={
+                                !form.decoder || !form.customer || isVerifying || step === 'auth'
+                              }
                             >
                               {isVerifying ? <CircularProgress size={20} /> : 'Verify'}
                             </Button>
@@ -282,11 +301,25 @@ export default function CableTVPage() {
                     )}
                   </Box>
 
+                  {/* Security Section (PIN/OTP) */}
                   {step === 'auth' && (
                     <Paper
                       variant="outlined"
-                      sx={{ p: 3, bgcolor: 'background.neutral', borderStyle: 'dashed' }}
+                      sx={{
+                        p: 3,
+                        bgcolor: 'background.neutral',
+                        borderStyle: 'dashed',
+                        position: 'relative',
+                      }}
                     >
+                      <IconButton
+                        size="small"
+                        onClick={() => setStep('input')}
+                        sx={{ position: 'absolute', top: 8, right: 8 }}
+                      >
+                        <Iconify icon="eva:close-fill" />
+                      </IconButton>
+
                       <Typography variant="subtitle2" sx={{ mb: 2 }}>
                         {authMessage}
                       </Typography>
@@ -294,12 +327,17 @@ export default function CableTVPage() {
                         fullWidth
                         autoFocus
                         type={authType === 'pin' ? 'password' : 'text'}
-                        label={authType === 'pin' ? 'PIN' : 'OTP Code'}
+                        label={authType === 'pin' ? 'Security PIN' : 'OTP Code'}
                         value={form.pin}
                         onChange={(e) => setForm({ ...form, pin: e.target.value })}
                         inputProps={{
                           maxLength: authType === 'pin' ? 4 : 6,
-                          style: { textAlign: 'center', letterSpacing: 8, fontWeight: 'bold' },
+                          style: {
+                            textAlign: 'center',
+                            letterSpacing: 8,
+                            fontWeight: 'bold',
+                            fontSize: '1.2rem',
+                          },
                         }}
                       />
                     </Paper>
@@ -309,22 +347,22 @@ export default function CableTVPage() {
             </Stack>
           </Grid>
 
-          {/* Preview Sidebar */}
+          {/* Sidebar Preview */}
           <Grid item xs={12} md={5}>
             <Card sx={{ p: 4, position: 'sticky', top: 100 }}>
               <Typography variant="h6" sx={{ mb: 3 }}>
-                Preview
+                Order Summary
               </Typography>
               <Stack spacing={2.5}>
                 <PreviewRow label="Provider" value={selectedProvider?.name || '---'} />
-                <PreviewRow label="SmartCard" value={form.customer || '---'} />
-                <PreviewRow label="Owner" value={verifiedName || '---'} />
-                <PreviewRow label="Package" value={currentPlan?.name || '---'} />
+                <PreviewRow label="IUC Number" value={form.customer || '---'} />
+                <PreviewRow label="Customer Name" value={verifiedName || '---'} />
+                <PreviewRow label="Plan" value={currentPlan?.name || '---'} />
 
                 <Divider sx={{ borderStyle: 'dashed' }} />
 
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="subtitle1">Amount Due</Typography>
+                  <Typography variant="subtitle1">Total Amount</Typography>
                   <Typography variant="h4" color="primary">
                     {fCurrency(currentPlan?.variation_amount || 0, 'NGN')}
                   </Typography>
@@ -336,41 +374,41 @@ export default function CableTVPage() {
                   variant="contained"
                   disabled={!form.plan || !verifiedName || loading}
                   onClick={step === 'input' ? handleCheckAuth : handleFinalPurchase}
+                  sx={{ py: 1.5 }}
                 >
                   {loading ? (
                     <CircularProgress size={24} color="inherit" />
                   ) : step === 'input' ? (
-                    'Proceed'
+                    'Review & Continue'
                   ) : (
-                    'Buy Plan'
+                    'Confirm Payment'
                   )}
                 </Button>
+
+                {step === 'auth' && (
+                  <Button fullWidth color="inherit" onClick={() => setStep('input')}>
+                    Cancel
+                  </Button>
+                )}
               </Stack>
             </Card>
           </Grid>
         </Grid>
       </Container>
 
-      {/* Success Modal */}
-      <Dialog open={showSuccess} onClose={() => setShowSuccess(false)} fullWidth maxWidth="xs">
+      {/* Success Dialog */}
+      <Dialog open={showSuccess} onClose={() => window.location.reload()} fullWidth maxWidth="xs">
         <DialogContent sx={{ textAlign: 'center', py: 6 }}>
           <Iconify icon="solar:check-circle-bold" width={72} color="success.main" sx={{ mb: 2 }} />
           <Typography variant="h4" gutterBottom>
-            Subscription Active!
+            Payment Successful
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-            {result?.message}
+            {result?.message || 'Your cable TV subscription has been renewed successfully.'}
           </Typography>
 
           <Paper variant="outlined" sx={{ p: 2, mb: 4, bgcolor: 'background.neutral' }}>
             <Stack spacing={1.5}>
-              <Stack direction="row" justifyContent="space-between">
-                <Typography variant="caption">Total Charged</Typography>
-                <Typography variant="subtitle2">
-                  {fCurrency(result?.data?.total || 0, 'NGN')}
-                </Typography>
-              </Stack>
-              <Divider />
               <Stack direction="row" justifyContent="space-between">
                 <Typography variant="caption">Reference</Typography>
                 <Typography variant="subtitle2" sx={{ fontSize: 11 }}>
@@ -380,15 +418,20 @@ export default function CableTVPage() {
               <Divider />
               <Stack direction="row" justifyContent="space-between">
                 <Typography variant="caption">New Balance</Typography>
-                <Typography variant="h6" color="primary">
+                <Typography variant="subtitle2" color="primary">
                   {fCurrency(result?.data?.balance_after || 0, 'NGN')}
                 </Typography>
               </Stack>
             </Stack>
           </Paper>
 
-          <Button fullWidth variant="contained" onClick={() => window.location.reload()}>
-            Finish
+          <Button
+            fullWidth
+            variant="contained"
+            size="large"
+            onClick={() => window.location.reload()}
+          >
+            Done
           </Button>
         </DialogContent>
       </Dialog>

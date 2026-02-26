@@ -149,7 +149,7 @@ export default function RefundHistoryPage() {
               size="small"
               color="primary"
             >
-              {['NGN', 'USD', 'GBP'].map((lib) => (
+              {['NGN'].map((lib) => (
                 <ToggleButton key={lib} value={lib} sx={{ fontWeight: 'bold', px: 2 }}>
                   {lib}
                 </ToggleButton>
@@ -163,25 +163,25 @@ export default function RefundHistoryPage() {
             {
               title: 'Total Volume',
               val: summary?.total_refund_volume,
-              var: 'error',
+              var: 'primary',
               icon: 'eva:undo-fill',
             },
             {
               title: 'Pending',
               val: summary?.pending_amount,
-              var: 'warning',
+              var: 'primary',
               icon: 'eva:clock-fill',
             },
             {
               title: 'Successful',
               val: summary?.successful_amount,
-              var: 'success',
+              var: 'primary',
               icon: 'eva:checkmark-circle-2-fill',
             },
             {
               title: 'Count',
               val: summary?.total_count,
-              var: 'info',
+              var: 'primary',
               icon: 'eva:list-fill',
               noFormat: true,
             },

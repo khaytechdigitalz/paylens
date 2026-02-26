@@ -177,7 +177,7 @@ export default function TransactionReceipt({ open, onClose, transaction }: Recei
 
           <Box sx={{ mt: 5, textAlign: 'center' }}>
             <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block' }}>
-              PayLens Official Receipt
+              CredDot Official Receipt
             </Typography>
           </Box>
         </Paper>

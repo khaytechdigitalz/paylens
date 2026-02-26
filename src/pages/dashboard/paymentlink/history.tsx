@@ -157,7 +157,7 @@ export default function PaymentLinkPage() {
               size="small"
               color="primary"
             >
-              {['NGN', 'USD', 'GBP'].map((curr) => (
+              {['NGN'].map((curr) => (
                 <ToggleButton key={curr} value={curr} sx={{ px: 2, fontWeight: 'bold' }}>
                   {curr}
                 </ToggleButton>
@@ -188,7 +188,7 @@ export default function PaymentLinkPage() {
               title="Total Sales"
               icon={<Iconify icon="eva:shopping-cart-fill" width={32} />}
               amount={loading ? <Skeleton /> : summary?.total_sales || 0}
-              variant="info"
+              variant="primary"
             />
           </Grid>
           <Grid item xs={12} md={3}>
@@ -196,7 +196,7 @@ export default function PaymentLinkPage() {
               title="Active Links"
               icon={<Iconify icon="eva:link-2-fill" width={32} />}
               amount={loading ? <Skeleton /> : summary?.active_links || 0}
-              variant="success"
+              variant="primary"
             />
           </Grid>
           <Grid item xs={12} md={3}>
@@ -204,7 +204,7 @@ export default function PaymentLinkPage() {
               title="Inactive"
               icon={<Iconify icon="eva:link-2-outline" width={32} />}
               amount={loading ? <Skeleton /> : summary?.inactive_links || 0}
-              variant="warning"
+              variant="primary"
             />
           </Grid>
         </Grid>

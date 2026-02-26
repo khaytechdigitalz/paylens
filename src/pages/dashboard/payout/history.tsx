@@ -157,8 +157,8 @@ export default function PayoutsPage() {
         </Stack>
 
         {/* STATS RIBBON */}
-        <Grid container spacing={3} sx={{ mb: 5 }}>
-          <Grid item xs={12} md={2.4}>
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          <Grid item xs={12} md={4}>
             <StatWidget
               title="Total Payouts"
               amount={loading ? '...' : (stats?.total_payouts || 0).toString()}
@@ -166,35 +166,35 @@ export default function PayoutsPage() {
               icon={<Iconify icon="solar:list-bold-duotone" />}
             />
           </Grid>
-          <Grid item xs={12} md={2.4}>
+          <Grid item xs={12} md={4}>
             <StatWidget
               title="Successful"
               amount={loading ? '...' : (stats?.successful_payouts || 0).toString()}
-              variant="success"
+              variant="primary"
               icon={<Iconify icon="solar:check-circle-bold-duotone" />}
             />
           </Grid>
-          <Grid item xs={12} md={2.4}>
+          <Grid item xs={12} md={4}>
             <StatWidget
               title="Pending"
               amount={loading ? '...' : (stats?.pending_payouts || 0).toString()}
-              variant="warning"
+              variant="primary"
               icon={<Iconify icon="solar:clock-circle-bold-duotone" />}
             />
           </Grid>
-          <Grid item xs={12} md={2.4}>
+          <Grid item xs={12} md={6}>
             <StatWidget
               title="Total Volume"
               amount={loading ? '...' : fCurrency(stats?.total_volume || 0, 'NGN')}
-              variant="info"
+              variant="primary"
               icon={<Iconify icon="solar:wad-of-money-bold-duotone" />}
             />
           </Grid>
-          <Grid item xs={12} md={2.4}>
+          <Grid item xs={12} md={6}>
             <StatWidget
               title="Total Fees"
               amount={loading ? '...' : fCurrency(stats?.total_fees || 0, 'NGN')}
-              variant="error"
+              variant="primary"
               icon={<Iconify icon="solar:ticket-sale-bold-duotone" />}
             />
           </Grid>

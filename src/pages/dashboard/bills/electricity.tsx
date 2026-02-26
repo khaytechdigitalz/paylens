@@ -386,6 +386,20 @@ export default function ElectricityPage() {
               </Stack>
               <Divider />
               <Stack direction="row" justifyContent="space-between">
+                <Typography variant="caption">Token</Typography>
+                <Typography variant="subtitle2" sx={{ fontSize: 11 }}>
+                  {result?.data?.token}
+                </Typography>
+              </Stack>
+              <Divider />
+              <Stack direction="row" justifyContent="space-between">
+                <Typography variant="caption">Unit</Typography>
+                <Typography variant="subtitle2" sx={{ fontSize: 11 }}>
+                  {result?.data?.unit}
+                </Typography>
+              </Stack>
+              <Divider />
+              <Stack direction="row" justifyContent="space-between">
                 <Typography variant="caption">New Wallet Balance</Typography>
                 <Typography variant="h6" color="primary">
                   {fCurrency(result?.data?.balance_after || 0, 'NGN')}

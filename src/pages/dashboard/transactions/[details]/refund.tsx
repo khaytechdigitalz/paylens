@@ -17,7 +17,6 @@ import {
   alpha,
   Paper,
   IconButton,
-  useTheme,
   CardHeader,
   Table,
   TableRow,
@@ -44,7 +43,6 @@ RefundDetailsPage.getLayout = (page: React.ReactElement) => (
 );
 
 export default function RefundDetailsPage() {
-  const theme = useTheme();
   const { themeStretch } = useSettingsContext();
   const { query, isReady, push } = useRouter();
 

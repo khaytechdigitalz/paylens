@@ -241,7 +241,7 @@ export default function PageFive() {
               size="small"
               color="primary"
             >
-              {['NGN', 'USD', 'GBP'].map((lib) => (
+              {['NGN'].map((lib) => (
                 <ToggleButton key={lib} value={lib} sx={{ fontWeight: 'bold', px: 2 }}>
                   {lib}
                 </ToggleButton>
@@ -281,7 +281,7 @@ export default function PageFive() {
               <StatWidget
                 title="Total Volume"
                 amount={stats?.transaction_volume || 0}
-                variant="info"
+                variant="primary"
                 icon={<Iconify icon="eva:layers-fill" width={32} />}
               />
             )}
@@ -293,7 +293,7 @@ export default function PageFive() {
               <StatWidget
                 title="Total Fees"
                 amount={fCurrency(stats?.transaction_fee || 0, activeCurrency)}
-                variant="warning"
+                variant="primary"
                 icon={<Iconify icon="eva:pie-chart-2-fill" width={32} />}
               />
             )}
@@ -351,9 +351,7 @@ export default function PageFive() {
                             {fDate(row.created_at)}
                           </TableCell>
 
-                          <TableCell sx={{ fontWeight: 'bold' }}>
-                            {row.currency}
-                          </TableCell>
+                          <TableCell sx={{ fontWeight: 'bold' }}>{row.currency}</TableCell>
 
                           <TableCell sx={{ fontWeight: 'bold' }}>
                             {fCurrency(row.amount, row.currency)}
