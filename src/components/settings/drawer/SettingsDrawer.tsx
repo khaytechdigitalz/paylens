@@ -124,10 +124,14 @@ export default function SettingsDrawer() {
           <Block title="Stretch" tooltip="Only available at large resolutions > 1600px (xl)">
             <StretchOptions />
           </Block>
-
+          <>
+          {/*
           <Block title="Presets">
             <ColorPresetsOptions />
           </Block>
+          */}
+          </>
+
         </Scrollbar>
 
         <Box sx={{ p: SPACING, pt: 0 }}>

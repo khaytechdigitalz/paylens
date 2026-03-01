@@ -134,10 +134,6 @@ export function LayoutIcon({ layout }: LayoutIconValue) {
         }}
       />
 
-      <Box sx={{ flexGrow: 1, position: 'relative', borderRadius: RADIUS }}>
-        <Box sx={{ ...styles, opacity: 0.16, bgcolor: 'currentColor' }} />
-        <Box sx={{ ...styles, opacity: 0.48, border: `dashed 1px currentColor` }} />
-      </Box>
     </Stack>
   );
 }

@@ -123,25 +123,7 @@ export default function LoginPage() {
               <Stack spacing={2} sx={{ mb: 5, alignItems: 'center' }}>
                 <Logo sx={{ width: 64, height: 64, mb: 1 }} />
 
-                <Box
-                  sx={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    px: 1.5,
-                    py: 0.5,
-                    borderRadius: 1,
-                    bgcolor: alpha(theme.palette.success.main, 0.1),
-                    color: 'success.dark',
-                    typography: 'caption',
-                    fontWeight: 'bold',
-                    textTransform: 'uppercase',
-                    letterSpacing: 1,
-                  }}
-                >
-                  <Iconify icon="solar:shield-check-bold" width={14} />
-                  Secure Session
-                </Box>
+                
 
                 <Box>
                   <Typography variant="h3" sx={{ mb: 1, fontWeight: 800 }}>
