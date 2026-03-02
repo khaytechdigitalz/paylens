@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
+
 // @mui
 import { useTheme, alpha } from '@mui/material/styles';
 import router, { useRouter } from 'next/router';
@@ -16,6 +17,7 @@ import {
   Avatar,
   IconButton,
 } from '@mui/material';
+import BVNAlert from '../../layouts/dashboard/BVNAlert';
 
 // utils
 import axios from '../../utils/axios';
@@ -54,6 +56,7 @@ export default function PageOne() {
   const [showBalance, setShowBalance] = useState<boolean>(true); // State for eye toggle
 
   const [wallets, setWallets] = useState<any[]>([]);
+  const [verification, setVerifications] = useState<any[]>([]);
   const [stats, setStats] = useState({ totalinflow: 0, totaloutflow: 0 });
   const [transactions, setTransactions] = useState([]);
   const [chartData, setChartData] = useState<any>(null);
@@ -68,6 +71,7 @@ export default function PageOne() {
         if (res.data?.data) {
           const d = res.data.data;
           setWallets(d.wallets || []);
+          setVerifications(d.verification || []);
           setStats(d.overall_stats || { totalinflow: 0, totaloutflow: 0 });
           setTransactions(d.recent_transactions || []);
           setChartData({
@@ -124,9 +128,9 @@ export default function PageOne() {
   return (
     <>
       <Head>
-        <title>Command Center | PayLens</title>
+        <title>Dashboard | CredDot</title>
       </Head>
-
+      <>{!verification.bvn && <BVNAlert />}</>
       <Container maxWidth={themeStretch ? false : 'xl'}>
         <Grid container spacing={3}>
           {/* HERO: ACCOUNT BALANCE & TOGGLE */}
@@ -216,12 +220,12 @@ export default function PageOne() {
                 <Grid item xs={12} md={6}>
                   <Stack direction="row" spacing={2} justifyContent={{ md: 'flex-end' }}>
                     <ActionButton
-                      link="bills/history"
+                      link="payout/history"
                       icon="solar:square-transfer-horizontal-bold-duotone"
                       label="Transfer"
                     />
                     <ActionButton
-                      link="payout/history"
+                      link="bills/history"
                       icon="solar:card-send-bold-duotone"
                       label="Pay Bills"
                     />

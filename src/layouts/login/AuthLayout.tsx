@@ -2,7 +2,7 @@
 // components
 import Logo from '../../components/logo';
 //
-import { StyledRoot,  StyledContent } from './styles';
+import { StyledRoot } from './styles';
 
 // ----------------------------------------------------------------------
 

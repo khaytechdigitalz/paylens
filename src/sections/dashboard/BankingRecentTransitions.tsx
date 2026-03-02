@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { sentenceCase } from 'change-case';
 // @mui
 import { useTheme } from '@mui/material/styles';
+import router from 'next/router';
 import {
   Box,
   Card,
@@ -76,6 +77,7 @@ export default function BankingRecentTransitions({
 
       <Box sx={{ p: 2, textAlign: 'right' }}>
         <Button
+          onClick={() => router.push('transactions/history')}
           size="small"
           color="inherit"
           endIcon={<Iconify icon="eva:arrow-ios-forward-fill" />}
