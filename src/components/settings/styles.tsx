@@ -105,12 +105,6 @@ export function LayoutIcon({ layout }: LayoutIconValue) {
 
   const isNavMini = layout === 'mini';
 
-  const styles = {
-    width: 1,
-    height: 1,
-    borderRadius: RADIUS,
-    position: 'absolute',
-  };
 
   return (
     <Stack direction={layout === 'horizontal' ? 'column' : 'row'} sx={{ width: 1, height: 1 }}>

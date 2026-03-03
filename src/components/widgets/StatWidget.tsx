@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 import { Card, Typography, Stack, Box, useTheme, alpha, Divider } from '@mui/material';
 // utils
-import { fCurrency, fShortenNumber } from '../../utils/formatNumber';
+import { fCurrency } from '../../utils/formatNumber';
 // components
 import Iconify from '../iconify';
 

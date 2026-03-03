@@ -21,7 +21,6 @@ import StretchOptions from './StretchOptions';
 import ContrastOptions from './ContrastOptions';
 import DirectionOptions from './DirectionOptions';
 import FullScreenOptions from './FullScreenOptions';
-import ColorPresetsOptions from './ColorPresetsOptions';
 
 // ----------------------------------------------------------------------
 
