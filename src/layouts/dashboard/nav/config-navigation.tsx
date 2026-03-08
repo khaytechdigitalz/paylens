@@ -38,7 +38,7 @@ const navConfig = [
       },
 
       { title: 'Bills Payment', path: PATH_DASHBOARD.bills.history, icon: ICONS.cart },
-      { title: 'Bank Transfer', path: PATH_DASHBOARD.payout.history, icon: ICONS.banking },
+      { title: 'Payout', path: PATH_DASHBOARD.payout.history, icon: ICONS.banking },
       { title: 'Payment Link', path: PATH_DASHBOARD.paymentlink.history, icon: ICONS.ecommerce },
       { title: 'Settlement', path: PATH_DASHBOARD.settlement, icon: ICONS.invoice },
     ],
