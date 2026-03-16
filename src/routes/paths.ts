@@ -10,6 +10,7 @@ const ROOTS_DASHBOARD = '/dashboard';
 
 export const PATH_AUTH = {
   login: '/login',
+  verify: '/verify',
   register: '/register',
   forgotpassword: '/forgotpassword',
   api: '/documentation/overview',
