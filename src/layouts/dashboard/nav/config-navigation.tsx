@@ -16,6 +16,7 @@ const ICONS = {
   banking: icon('ic_banking'),
   analytics: icon('ic_analytics'),
   cart: icon('ic_cart'),
+  booking: icon('ic_booking'),
   invoice: icon('ic_invoice'),
 };
 
@@ -26,7 +27,8 @@ const navConfig = [
     subheader: 'general v1.1.0',
     items: [
       { title: 'Dashboard', path: PATH_DASHBOARD.dashboard, icon: ICONS.dashboard },
-      { title: 'POS', path: PATH_DASHBOARD.pos.history, icon: ICONS.dashboard },
+      { title: 'POS', path: PATH_DASHBOARD.pos.history, icon: ICONS.ecommerce },
+      { title: 'Virtual Card', path: PATH_DASHBOARD.virtualcard.history, icon: ICONS.booking },
       {
         title: 'Transactions',
         path: PATH_DASHBOARD.transactions.root,

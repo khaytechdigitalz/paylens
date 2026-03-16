@@ -84,7 +84,7 @@ export default function InternetPage() {
           const response = await axios.post('/bills/internet/plans', { network: form.network });
           setPlans(response.data.data);
         } catch (error: any) {
-          setErrorMessage(error.response?.data?.message || 'Failed to fetch data plans.');
+          setErrorMessage(error?.message || 'Failed to fetch data plans.');
         } finally {
           setPlansLoading(false);
         }
@@ -131,7 +131,7 @@ export default function InternetPage() {
       setShowSuccess(true);
     } catch (error: any) {
       // Capture the error message from the response sample: {"message": "..."}
-      setErrorMessage(error.response?.data?.message || 'An unexpected error occurred.');
+      setErrorMessage(error?.message || 'An unexpected error occurred.');
     } finally {
       setLoading(false);
     }

@@ -26,6 +26,13 @@ export const PATH_DASHBOARD = {
     transactions: path(ROOTS_DASHBOARD, '/pos/transactions'),
   },
 
+  virtualcard: {
+    root: path(ROOTS_DASHBOARD, '/virtualcard'),
+    history: path(ROOTS_DASHBOARD, '/virtualcard/history'),
+    details: (details: string) => path(ROOTS_DASHBOARD, `/virtualcard/${details}/details`),
+    transactions: path(ROOTS_DASHBOARD, '/virtualcard/transactions'),
+  },
+
   transactions: {
     root: path(ROOTS_DASHBOARD, '/transactions'),
     history: path(ROOTS_DASHBOARD, '/transactions/history'),

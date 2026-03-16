@@ -123,8 +123,6 @@ export default function LoginPage() {
               <Stack spacing={2} sx={{ mb: 5, alignItems: 'center' }}>
                 <Logo sx={{ width: 64, height: 64, mb: 1 }} />
 
-                
-
                 <Box>
                   <Typography variant="h3" sx={{ mb: 1, fontWeight: 800 }}>
                     Sign In
@@ -196,7 +194,7 @@ export default function LoginPage() {
                   <Stack direction="row" alignItems="center" justifyContent="space-between">
                     <RHFCheckbox name="remember" label="Trust this device" />
                     <Link
-                      onClick={() => push('/forgot-password')}
+                      onClick={() => push('/forgotpassword')}
                       variant="subtitle2"
                       sx={{
                         cursor: 'pointer',

@@ -110,7 +110,7 @@ export default function AirtimePage() {
       });
       setShowSuccess(true);
     } catch (error: any) {
-      setErrorMessage(error.response?.data?.message || 'Airtime purchase failed.');
+      setErrorMessage(error?.message || 'Airtime purchase failed.');
     } finally {
       setLoading(false);
     }

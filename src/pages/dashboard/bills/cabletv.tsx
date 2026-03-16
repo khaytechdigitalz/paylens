@@ -88,7 +88,8 @@ export default function CableTVPage() {
           const response = await axios.post('/bills/cabletv/plans', { decoder: form.decoder });
           setPlans(response.data.data);
         } catch (error) {
-          setErrorMessage('Could not load plans for this provider.');
+          setErrorMessage(error?.message || 'Could not load plans for this provider.');
+
         } finally {
           setPlansLoading(false);
         }
@@ -118,7 +119,7 @@ export default function CableTVPage() {
       setVerifiedName(response.data.customer);
     } catch (error: any) {
       setErrorMessage(
-        error.response?.data?.message || 'Verification failed. Check decoder number.'
+        error.message || 'Verification failed. Check decoder number.'
       );
       setVerifiedName(null);
     } finally {
@@ -156,7 +157,7 @@ export default function CableTVPage() {
       setResult(response.data);
       setShowSuccess(true);
     } catch (error: any) {
-      setErrorMessage(error.response?.data?.message || 'Subscription failed.');
+      setErrorMessage(error?.message || 'Subscription failed.');
     } finally {
       setLoading(false);
     }

@@ -94,7 +94,7 @@ export default function PayoutModal({ open, onClose, onSuccess }: Props) {
   const fetchBanks = async () => {
     setLoading((prev) => ({ ...prev, banks: true }));
     try {
-      const response = await axios.get('/monnify/banklist');
+      const response = await axios.get('/paylony/banklist');
       setBanks(response.data.banks || []);
     } catch (error) {
       console.error(error);
@@ -110,7 +110,7 @@ export default function PayoutModal({ open, onClose, onSuccess }: Props) {
     setAccountName('');
     setErrorMessage(null);
     try {
-      const response = await axios.post('/monnify/validateaccount', {
+      const response = await axios.post('/paylony/validateaccount', {
         account_number: numberToValidate,
         bank_code: bankCode,
       });
@@ -120,7 +120,7 @@ export default function PayoutModal({ open, onClose, onSuccess }: Props) {
         setErrorMessage(response.data.message || 'Could not resolve account');
       }
     } catch (error: any) {
-      setErrorMessage(error.response?.data?.message || 'Invalid account details');
+      setErrorMessage(error?.message || 'Invalid account details');
     } finally {
       setLoading((prev) => ({ ...prev, validating: false }));
     }
@@ -152,7 +152,7 @@ export default function PayoutModal({ open, onClose, onSuccess }: Props) {
     setErrorMessage(null); // Clear previous errors
 
     try {
-      const response = await axios.post('/monnify/transfer', {
+      const response = await axios.post('/paylony/transfer', {
         bank_code: bankCode,
         account_number: accountNumber,
         amount,
@@ -174,7 +174,7 @@ export default function PayoutModal({ open, onClose, onSuccess }: Props) {
     } catch (error: any) {
       // Handle actual API errors (400, 401, 500, etc)
       const serverMessage =
-        error.response?.data?.message || error.message || 'Network error occurred during transfer';
+        error.response?.message || error.message || 'Network error occurred during transfer';
       setErrorMessage(serverMessage);
       console.error('Payout Final Error:', error);
     } finally {
@@ -189,7 +189,7 @@ export default function PayoutModal({ open, onClose, onSuccess }: Props) {
       open={open}
       onClose={onClose}
       fullWidth
-      maxWidth="xs"
+      maxWidth="sm"
       PaperProps={{ sx: { borderRadius: 2 } }}
     >
       <LinearProgress variant="determinate" value={progress} sx={{ height: 4 }} />

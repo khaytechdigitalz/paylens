@@ -29,7 +29,8 @@ import DashboardLayout from '../../../layouts/dashboard';
 // components
 import Iconify from '../../../components/iconify';
 import Scrollbar from '../../../components/scrollbar';
-import StatWidget from '../../../components/widgets/StatWidget';
+import  StatWidget  from '../../../components/widgets/StatWidget';
+import CountWidget from '../../../components/widgets/CountWidget';
 import { useSettingsContext } from '../../../components/settings';
 import { TableNoData, TableHeadCustom } from '../../../components/table';
 import TransactionTableToolbar from './TransactionTableToolbar';
@@ -159,7 +160,7 @@ export default function PayoutsPage() {
         {/* STATS RIBBON */}
         <Grid container spacing={3} sx={{ mb: 3 }}>
           <Grid item xs={12} md={4}>
-            <StatWidget
+            <CountWidget
               title="Total Payouts"
               amount={loading ? '...' : (stats?.total_payouts || 0).toString()}
               variant="primary"
@@ -167,7 +168,7 @@ export default function PayoutsPage() {
             />
           </Grid>
           <Grid item xs={12} md={4}>
-            <StatWidget
+            <CountWidget
               title="Successful"
               amount={loading ? '...' : (stats?.successful_payouts || 0).toString()}
               variant="primary"
@@ -175,7 +176,7 @@ export default function PayoutsPage() {
             />
           </Grid>
           <Grid item xs={12} md={4}>
-            <StatWidget
+            <CountWidget
               title="Pending"
               amount={loading ? '...' : (stats?.pending_payouts || 0).toString()}
               variant="primary"

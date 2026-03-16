@@ -96,7 +96,7 @@ export default function ElectricityPage() {
       setVerifiedName(response.data.customer);
     } catch (error: any) {
       setErrorMessage(
-        error.response?.data?.message || 'Meter verification failed. Please check the number.'
+        error?.message || 'Meter verification failed. Please check the number.'
       );
       setVerifiedName(null);
     } finally {
@@ -134,7 +134,7 @@ export default function ElectricityPage() {
       setResult(response.data);
       setShowSuccess(true);
     } catch (error: any) {
-      setErrorMessage(error.response?.data?.message || 'Transaction could not be completed.');
+      setErrorMessage(error?.message || 'Transaction could not be completed.');
     } finally {
       setLoading(false);
     }
