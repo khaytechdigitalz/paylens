@@ -71,7 +71,7 @@ export default function PageOne() {
         if (res.data?.data) {
           const d = res.data.data;
           setWallets(d.wallets || []);
-          setVerifications(d.verification.bvn || []);
+          setVerifications(d.verification.bvn);
           setStats(d.overall_stats || { totalinflow: 0, totaloutflow: 0 });
           setTransactions(d.recent_transactions || []);
           setChartData({
@@ -131,6 +131,7 @@ export default function PageOne() {
         <title>Dashboard | CredDot</title>
       </Head>
       <>{!verification && <BVNAlert />}</>
+      
       <Container maxWidth={themeStretch ? false : 'xl'}>
         <Grid container spacing={3}>
           {/* HERO: ACCOUNT BALANCE & TOGGLE */}

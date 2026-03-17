@@ -1,12 +1,14 @@
-/* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable no-nested-ternary */
 import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 // @mui
-import { Box, Stack, Typography, CircularProgress, alpha } from '@mui/material';
+import { Box, Stack, Typography, CircularProgress, alpha, TextField } from '@mui/material';
+import { LoadingButton } from '@mui/lab';
 // components
 import Iconify from '../components/iconify';
+import Logo from '../components/logo';
+
 import { useSnackbar } from '../components/snackbar';
 // utils
 import axios from '../utils/axios';
@@ -21,36 +23,57 @@ export default function VerifyAccountPage() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('Verifying your account, please wait...');
 
+  const [otp, setOtp] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const token = query.token as string;
 
   const handleVerify = useCallback(async () => {
     if (!token) return;
 
     try {
-      // Call the endpoint: {{baseurl}}/auth/verify/{token}
       const response = await axios.get(`/auth/verify/${token}`);
-
       setStatus('success');
-      setMessage(response.data.message || 'Account verified successfully!');
-      enqueueSnackbar(response.data.message || 'Verification successful!', { variant: 'success' });
-
-      // Redirect to /login after 3 seconds
-      setTimeout(() => {
-        push('/login');
-      }, 3000);
+      setMessage(response.data.message || 'OTP Sent');
+      enqueueSnackbar('Please verify account using the OTP sent to your mail!', {
+        variant: 'success',
+      });
     } catch (error) {
-      console.error(error);
       setStatus('error');
       setMessage(error.message || 'Verification link is invalid or has expired.');
       enqueueSnackbar(error.message || 'Verification failed', { variant: 'error' });
     }
-  }, [token, enqueueSnackbar, push]);
+  }, [token, enqueueSnackbar]);
 
   useEffect(() => {
     if (token) {
       handleVerify();
     }
   }, [token, handleVerify]);
+
+  const handleOtpSubmit = async () => {
+    if (otp.length < 6) {
+      enqueueSnackbar('Please enter a valid 6-digit OTP', { variant: 'warning' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Submitting to the current URL logic: /auth/verify/{token} with OTP body
+      const response = await axios.post(`/auth/verify/${token}`, { otp });
+
+      enqueueSnackbar(response.data.message || 'Verification Successful!', { variant: 'success' });
+
+      // Final Redirect to login/dashboard
+      setTimeout(() => {
+        push('/login');
+      }, 2000);
+    } catch (error) {
+      enqueueSnackbar(error.message || 'Invalid OTP. Please try again.', { variant: 'error' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <>
@@ -59,26 +82,19 @@ export default function VerifyAccountPage() {
       </Head>
 
       <GuestGuard>
-        <Box
-          sx={{
-            py: 12,
-            maxWidth: 480,
-            mx: 'auto',
-            textAlign: 'center',
-            px: 3,
-          }}
-        >
+        <Box sx={{ py: 12, maxWidth: 480, mx: 'auto', textAlign: 'center', px: 3 }}>
+          <Logo sx={{ width: 94, height: 94, mb: 2 }} />
+
           <Stack spacing={4} alignItems="center">
             {/* Status Icon Decoration */}
             <Box
               sx={{
-                width: 120,
-                height: 120,
+                width: 50,
+                height: 50,
                 display: 'flex',
                 borderRadius: '50%',
                 alignItems: 'center',
                 justifyContent: 'center',
-                position: 'relative',
                 color:
                   status === 'loading'
                     ? 'primary.main'
@@ -102,7 +118,7 @@ export default function VerifyAccountPage() {
                 <Iconify
                   icon={
                     status === 'success'
-                      ? 'solar:check-circle-bold-duotone'
+                      ? 'solar:shield-check-bold-duotone'
                       : 'solar:danger-bold-duotone'
                   }
                   width={80}
@@ -112,18 +128,46 @@ export default function VerifyAccountPage() {
 
             <Stack spacing={1}>
               <Typography variant="h3">
-                {status === 'loading' && 'Authenticating...'}
-                {status === 'success' && 'Verified!'}
-                {status === 'error' && 'Failed'}
+                {status === 'loading' && 'Checking Link...'}
+                {status === 'success' && 'Verify Your Email'}
+                {status === 'error' && 'Link Error'}
               </Typography>
-
               <Typography sx={{ color: 'text.secondary' }}>{message}</Typography>
             </Stack>
 
             {status === 'success' && (
-              <Typography variant="caption" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
-                Redirecting you to the login page in a few seconds...
-              </Typography>
+              <Stack spacing={3} sx={{ width: '100%' }}>
+                <TextField
+                  fullWidth
+                  name="otp"
+                  label="Enter 6-Digit OTP"
+                  placeholder="000000"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  inputProps={{
+                    maxLength: 6,
+                    style: {
+                      textAlign: 'center',
+                      letterSpacing: '12px',
+                      fontSize: '1.8rem',
+                      fontWeight: '800',
+                    },
+                  }}
+                  helperText="Check your email for the verification code"
+                />
+
+                <LoadingButton
+                  fullWidth
+                  size="large"
+                  type="submit"
+                  variant="contained"
+                  loading={isSubmitting}
+                  onClick={handleOtpSubmit}
+                  sx={{ py: 1.5, fontSize: '1rem', fontWeight: 700 }}
+                >
+                  Verify Account
+                </LoadingButton>
+              </Stack>
             )}
 
             {status === 'error' && (

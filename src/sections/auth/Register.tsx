@@ -127,6 +127,7 @@ export default function AuthRegisterForm() {
 
       // Append text fields
       Object.entries(data).forEach(([key, value]) => {
+        // Ensure we don't double-append files or empty values
         if (value && key !== 'cacDocument' && key !== 'addressProof') {
           formData.append(key, value as string);
         }
@@ -136,15 +137,29 @@ export default function AuthRegisterForm() {
       if (data.cacDocument) formData.append('cacDocument', data.cacDocument);
       if (data.addressProof) formData.append('addressProof', data.addressProof);
 
-      
-      await axios.post('/auth/register', formData, {
+      // 1. Capture the response from the API
+      const response = await axios.post('/auth/register', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      enqueueSnackbar('Registration successful!');
-      push('/dashboard');
+      // 2. Extract the token (adjusting for common axios response structures)
+      // Most Laravel/Node backends return data inside response.data
+      const token = response.data?.token || response.data?.data?.token;
+
+      enqueueSnackbar('Registration successful! Please verify your account.');
+
+      // 3. Redirect using the token in the query string
+      if (token) {
+        push(`/verify_account?token=${token}`);
+      } else {
+        // Fallback if token isn't returned for some reason
+        push('/login');
+      }
     } catch (error) {
-      enqueueSnackbar(error.message || 'Error occurred', { variant: 'error' });
+      console.error(error);
+      // If your backend returns validation errors in an object
+      const errorMessage = error.response?.data?.message || error.message || 'Registration failed';
+      enqueueSnackbar(errorMessage, { variant: 'error' });
     }
   };
 

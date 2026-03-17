@@ -23,66 +23,68 @@ import DashboardLayout from '../../../layouts/dashboard';
 // components
 import Iconify from '../../../components/iconify';
 import axios from '../../../utils/axios';
-import { fCurrency } from '../../../utils/formatNumber';
+import { useSnackbar } from '../../../components/snackbar';
 
 // ----------------------------------------------------------------------
 
-const TERMINAL_MODELS = [
+const CARD_PROVIDERS = [
   {
-    id: 'Analogue POS Terminal',
-    title: 'Analogue POS',
-    subtitle: 'Classic & Reliable',
-    features: ['Long Battery Life', 'Physical Keypad', 'GPRS Connectivity'],
-    icon: 'solar:calculator-minimalistic-bold-duotone',
-    price: 30000, // Added price as a number
+    id: 'visa',
+    title: 'Visa Virtual Card',
+    subtitle: 'Global Acceptance',
+    features: ['Instant Issuance', 'Secure Online Shopping', 'USD/NGN Supported'],
+    icon: 'logos:visa',
   },
   {
-    id: 'Android POS Terminal',
-    title: 'Android Smart POS',
-    subtitle: 'Modern & Powerful',
-    features: ['Touch Screen', 'WiFi + 4G', 'Digital Receipts'],
-    icon: 'solar:smartphone-2-bold-duotone',
-    price: 50000, // Added price as a number
+    id: 'mastercard',
+    title: 'Mastercard Virtual',
+    subtitle: 'Reliable & Faster',
+    features: ['Subscription Friendly', '3D Secure Enabled', 'Zero Maintenance Fee'],
+    icon: 'logos:mastercard',
   },
 ];
 
-RequestTerminalPage.getLayout = (page: React.ReactElement) => (
+RequestVirtualCardPage.getLayout = (page: React.ReactElement) => (
   <DashboardLayout>{page}</DashboardLayout>
 );
 
-export default function RequestTerminalPage() {
+export default function RequestVirtualCardPage() {
   const theme = useTheme();
   const router = useRouter();
+  const { enqueueSnackbar } = useSnackbar();
 
   // UI States
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'input' | 'auth'>('input');
   const [error, setError] = useState<string | null>(null);
 
-  // Auth Type States
-  const [authType, setAuthType] = useState<'pin' | 'otp' | null>(null);
+  // Auth States
   const [authMessage, setAuthMessage] = useState('');
 
   // Form State
   const [form, setForm] = useState({
-    type: '',
-    price: 0, // Changed to number
-    delivery_address: '',
-    business_name: '',
+    type: '', // visa or mastercard
+    nin: '',
     pin: '',
   });
 
   // 1. Check Auth Step
   const handleProceedToAuth = async () => {
+    if (form.nin.length !== 11) {
+      setError('Please enter a valid 11-digit NIN.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
       const response = await axios.get('/payouts/check_auth');
-      setAuthType(response.data.status === 'pin_required' ? 'pin' : 'otp');
-      setAuthMessage(response.data.message);
+      setAuthMessage(
+        response.data.message || 'Enter your Transaction PIN to complete registration.'
+      );
       setStep('auth');
     } catch (e: any) {
-      setError(e.response?.data?.message || 'Authentication check failed.');
+      setError(e.message || 'Authentication check failed.');
     } finally {
       setLoading(false);
     }
@@ -93,35 +95,31 @@ export default function RequestTerminalPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.post('/terminals/request', {
-        terminal_type: form.type,
-        price: form.price,
-        delivery_address: form.delivery_address,
-        business_name: form.business_name,
+      const response = await axios.post('/virtualcard/request', {
+        type: form.type,
+        nin: form.nin,
         pin: form.pin,
       });
-      setError(response.data.message);
-      alert(response.data.message);
-      router.push('/dashboard/pos/history');
+
+      enqueueSnackbar(response.data.message || 'Virtual Card Created Successfully!', {
+        variant: 'success',
+      });
+      router.push('/dashboard/virtualcard/log');
     } catch (e: any) {
-      // Improved error message extraction
       const errorMessage = e?.message || 'Request failed. Please try again.';
       setError(errorMessage);
-
-      if (e.response?.status === 400) {
-        setForm((prev) => ({ ...prev, pin: '' }));
-      }
+      if (e.response?.status === 400) setForm((prev) => ({ ...prev, pin: '' }));
     } finally {
       setLoading(false);
     }
   };
 
-  const isInputValid = form.type && form.delivery_address && form.business_name;
+  const isInputValid = form.type && form.nin.length === 11;
 
   return (
     <>
       <Head>
-        <title>Request POS Terminal | PayLens</title>
+        <title>Request Virtual Card | CredDot</title>
       </Head>
 
       <Container maxWidth="xl">
@@ -133,22 +131,23 @@ export default function RequestTerminalPage() {
           onClick={() => router.back()}
         >
           <Iconify icon="solar:double-alt-arrow-left-bold-duotone" width={20} />
-          <Typography variant="subtitle2">Back to POS</Typography>
+          <Typography variant="subtitle2">Back</Typography>
         </Stack>
 
         <Box sx={{ mb: 5 }}>
-          <Typography variant="h3">POS Terminal Request</Typography>
+          <Typography variant="h3">Issue Virtual Card</Typography>
           <Typography variant="body2" color="text.secondary">
-            Securely request a terminal for your business.
+            Provide your details to generate a secure virtual payment card.
           </Typography>
         </Box>
 
         <Grid container spacing={4}>
           <Grid item xs={12} md={8}>
             <Stack spacing={4}>
+              {/* STEP 1: Select Type */}
               <Box
                 sx={{
-                  opacity: step === 'auth' ? 0.6 : 1,
+                  opacity: step === 'auth' ? 0.5 : 1,
                   pointerEvents: step === 'auth' ? 'none' : 'auto',
                 }}
               >
@@ -171,44 +170,38 @@ export default function RequestTerminalPage() {
                   >
                     1
                   </Box>
-                  Select Hardware Model
+                  Select Card Network
                 </Typography>
                 <Grid container spacing={2}>
-                  {TERMINAL_MODELS.map((model) => (
-                    <Grid item xs={12} sm={6} key={model.id}>
+                  {CARD_PROVIDERS.map((card) => (
+                    <Grid item xs={12} sm={6} key={card.id}>
                       <CardActionArea
-                        // Updated to pick model.price
-                        onClick={() => setForm({ ...form, type: model.id, price: model.price })}
+                        onClick={() => setForm({ ...form, type: card.id })}
                         sx={{
                           p: 3,
                           borderRadius: 2,
                           border: `2px solid ${
-                            form.type === model.id
+                            form.type === card.id
                               ? theme.palette.primary.main
                               : alpha(theme.palette.divider, 0.1)
                           }`,
                           bgcolor:
-                            form.type === model.id
+                            form.type === card.id
                               ? alpha(theme.palette.primary.main, 0.04)
                               : 'background.paper',
                         }}
                       >
-                        <Iconify
-                          icon={model.icon}
-                          width={40}
-                          color={form.type === model.id ? 'primary.main' : 'text.disabled'}
-                          sx={{ mb: 2 }}
-                        />
-                        <Typography variant="subtitle1">{model.title}</Typography>
+                        <Iconify icon={card.icon} width={45} sx={{ mb: 2 }} />
+                        <Typography variant="subtitle1">{card.title}</Typography>
                         <Typography
                           variant="caption"
                           color="text.secondary"
                           sx={{ display: 'block', mb: 2 }}
                         >
-                          {model.subtitle}
+                          {card.subtitle}
                         </Typography>
                         <Stack spacing={0.5}>
-                          {model.features.map((f) => (
+                          {card.features.map((f) => (
                             <Stack key={f} direction="row" alignItems="center" spacing={1}>
                               <Iconify
                                 icon="solar:check-read-linear"
@@ -218,12 +211,6 @@ export default function RequestTerminalPage() {
                               <Typography variant="caption">{f}</Typography>
                             </Stack>
                           ))}
-                          <Typography
-                            variant="caption"
-                            sx={{ mt: 1, fontWeight: 'bold', color: 'primary.main' }}
-                          >
-                            Price: {fCurrency(model.price)}
-                          </Typography>
                         </Stack>
                       </CardActionArea>
                     </Grid>
@@ -231,9 +218,10 @@ export default function RequestTerminalPage() {
                 </Grid>
               </Box>
 
+              {/* STEP 2: Identity */}
               <Box
                 sx={{
-                  opacity: step === 'auth' ? 0.6 : 1,
+                  opacity: step === 'auth' ? 0.5 : 1,
                   pointerEvents: step === 'auth' ? 'none' : 'auto',
                 }}
               >
@@ -256,28 +244,23 @@ export default function RequestTerminalPage() {
                   >
                     2
                   </Box>
-                  Business Logistics
+                  Identity Verification
                 </Typography>
                 <Card sx={{ p: 3, border: `1px solid ${theme.palette.divider}` }}>
-                  <Stack spacing={3}>
-                    <TextField
-                      fullWidth
-                      label="Business Name"
-                      value={form.business_name}
-                      onChange={(e) => setForm({ ...form, business_name: e.target.value })}
-                    />
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={3}
-                      label="Delivery Address"
-                      value={form.delivery_address}
-                      onChange={(e) => setForm({ ...form, delivery_address: e.target.value })}
-                    />
-                  </Stack>
+                  <TextField
+                    fullWidth
+                    label="National Identity Number (NIN)"
+                    placeholder="Enter 11-digit NIN"
+                    value={form.nin}
+                    onChange={(e) =>
+                      setForm({ ...form, nin: e.target.value.replace(/\D/g, '').slice(0, 11) })
+                    }
+                    helperText="Your NIN is required for card issuance compliance."
+                  />
                 </Card>
               </Box>
 
+              {/* STEP 3: Security */}
               {step === 'auth' && (
                 <Box>
                   <Typography
@@ -299,7 +282,7 @@ export default function RequestTerminalPage() {
                     >
                       3
                     </Box>
-                    Security Verification
+                    Security Authorization
                   </Typography>
                   <Card
                     sx={{
@@ -314,12 +297,12 @@ export default function RequestTerminalPage() {
                     <TextField
                       fullWidth
                       autoFocus
-                      type={authType === 'pin' ? 'password' : 'text'}
-                      placeholder={authType === 'pin' ? '****' : '000 000'}
+                      type="password"
+                      placeholder="****"
                       value={form.pin}
                       onChange={(e) => setForm({ ...form, pin: e.target.value })}
                       inputProps={{
-                        maxLength: authType === 'pin' ? 4 : 6,
+                        maxLength: 4,
                         style: {
                           textAlign: 'center',
                           letterSpacing: 15,
@@ -337,6 +320,7 @@ export default function RequestTerminalPage() {
             </Stack>
           </Grid>
 
+          {/* Sidebar Summary */}
           <Grid item xs={12} md={4}>
             <Card
               sx={{
@@ -347,22 +331,15 @@ export default function RequestTerminalPage() {
               }}
             >
               <Typography variant="h6" sx={{ mb: 3 }}>
-                Summary
+                Issuance Summary
               </Typography>
 
               <Stack spacing={2.5}>
-                <SummaryRow label="Terminal" value={form.type || 'Not selected'} />
-                <SummaryRow label="Business" value={form.business_name || '---'} />
-                <SummaryRow label="Delivery" value={form.delivery_address || '---'} />
+                <SummaryRow label="Network" value={form.type.toUpperCase() || 'Not selected'} />
+                <SummaryRow label="ID Method" value={form.nin ? 'NIN Verified' : '---'} />
+                <SummaryRow label="NIN" value={form.nin ? `*******${form.nin.slice(-4)}` : '---'} />
 
                 <Divider sx={{ borderStyle: 'dashed' }} />
-
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="subtitle1">Price</Typography>
-                  <Typography variant="h4" color="primary">
-                    {/* Picked dynamically from form state */}₦{fCurrency(form.price)}
-                  </Typography>
-                </Stack>
 
                 {error && <Alert severity="error">{error}</Alert>}
 
@@ -374,17 +351,18 @@ export default function RequestTerminalPage() {
                     disabled={!isInputValid || loading}
                     onClick={handleProceedToAuth}
                   >
-                    {loading ? <CircularProgress size={24} color="inherit" /> : 'Proceed to Verify'}
+                    {loading ? <CircularProgress size={24} color="inherit" /> : 'Proceed to Create'}
                   </Button>
                 ) : (
                   <Button
                     fullWidth
                     size="large"
                     variant="contained"
+                    color="primary"
                     disabled={form.pin.length < 4 || loading}
                     onClick={handleSubmit}
                   >
-                    {loading ? <CircularProgress size={24} color="inherit" /> : 'Confirm Request'}
+                    {loading ? <CircularProgress size={24} color="inherit" /> : 'Create Card Now'}
                   </Button>
                 )}
               </Stack>
@@ -399,12 +377,10 @@ export default function RequestTerminalPage() {
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <Stack direction="row" justifyContent="space-between" spacing={2}>
-      <Typography variant="caption" color="text.secondary" sx={{ minWidth: 80 }}>
+      <Typography variant="caption" color="text.secondary">
         {label}
       </Typography>
-      <Typography variant="subtitle2" sx={{ textAlign: 'right', wordBreak: 'break-word' }}>
-        {value}
-      </Typography>
+      <Typography variant="subtitle2">{value}</Typography>
     </Stack>
   );
 }
