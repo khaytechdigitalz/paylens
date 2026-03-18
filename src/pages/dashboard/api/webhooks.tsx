@@ -1,8 +1,6 @@
 /* eslint-disable func-names */
-/* eslint-disable react/jsx-curly-brace-presence */
 /* eslint-disable react/jsx-no-bind */
-import { useState } from 'react';
-// next
+import { useState, useEffect, useCallback, JSXElementConstructor, Key, ReactElement, ReactFragment, ReactPortal } from 'react';
 import Head from 'next/head';
 // @mui
 import {
@@ -22,6 +20,7 @@ import {
   TableContainer,
   Drawer,
   Box,
+  CircularProgress,
 } from '@mui/material';
 // layouts
 import DashboardLayout from '../../../layouts/dashboard';
@@ -38,65 +37,16 @@ import {
 } from '../../../components/table';
 // utils
 import { fDateTime } from '../../../utils/formatTime';
-// Internal Component (Toolbar for filtering)
+import axios from '../../../utils/axios';
 
 // ----------------------------------------------------------------------
-
-interface WebhookLog {
-  id: string;
-  event: string;
-  url: string;
-  status: number;
-  timestamp: string;
-  payload: object;
-  response: string;
-}
 
 const TABLE_HEAD = [
   { id: 'event', label: 'Event Type', align: 'left' },
   { id: 'status', label: 'Status', align: 'left' },
   { id: 'timestamp', label: 'Timestamp', align: 'left' },
-  { id: 'id', label: 'Request ID', align: 'left' },
+  { id: 'transaction_id', label: 'Transaction ID', align: 'left' },
   { id: '' },
-];
-
-const TABLE_DATA: WebhookLog[] = [
-  {
-    id: 'wh_log_01',
-    event: 'transaction.success',
-    url: 'https://api.site.com/wh',
-    status: 200,
-    timestamp: '2026-01-17T16:20:00',
-    payload: { id: 'TX-1' },
-    response: 'OK',
-  },
-  {
-    id: 'wh_log_02',
-    event: 'transaction.failed',
-    url: 'https://api.site.com/wh',
-    status: 400,
-    timestamp: '2026-01-17T15:45:00',
-    payload: { id: 'TX-2' },
-    response: 'Bad Request',
-  },
-  {
-    id: 'wh_log_03',
-    event: 'refund.completed',
-    url: 'https://api.site.com/wh',
-    status: 500,
-    timestamp: '2026-01-17T14:10:00',
-    payload: { id: 'RF-1' },
-    response: 'Internal Server Error',
-  },
-  {
-    id: 'wh_log_04',
-    event: 'payout.processed',
-    url: 'https://api.site.com/wh',
-    status: 200,
-    timestamp: '2026-01-17T12:00:00',
-    payload: { id: 'PY-1' },
-    response: 'OK',
-  },
 ];
 
 // ----------------------------------------------------------------------
@@ -105,55 +55,94 @@ WebhookLogsPage.getLayout = (page: React.ReactElement) => <DashboardLayout>{page
 
 export default function WebhookLogsPage() {
   const { themeStretch } = useSettingsContext();
-  const { page, order, orderBy, rowsPerPage,  onSort, onChangePage, onChangeRowsPerPage } =
-    useTable();
 
-  // Filter States
-  const [filterName] = useState('');
+  const { page, order, orderBy, rowsPerPage, setPage, onSort, onChangePage, onChangeRowsPerPage } =
+    useTable({ defaultRowsPerPage: 10 });
+
+  const [tableData, setTableData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
 
   // Drawer States
   const [openDrawer, setOpenDrawer] = useState(false);
-  const [selectedLog, setSelectedLog] = useState<WebhookLog | null>(null);
+  const [selectedLog, setSelectedLog] = useState<any | null>(null);
 
-  const handleOpenDrawer = (log: WebhookLog) => {
-    setSelectedLog(log);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Endpoint: {{baseurl}}/webhooks/logs
+      const response = await axios.get('/webhooks/logs');
+      setTableData(response.data.data.data);
+    } catch (error) {
+      console.error('Failed to fetch webhooks:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleOpenDrawer = (log: any) => {
+    // Parse the stringified webhook_data for display
+    let parsedData = {};
+    try {
+      parsedData = JSON.parse(log.webhook_data);
+    } catch (e) {
+      parsedData = { error: 'Invalid JSON data' };
+    }
+    setSelectedLog({ ...log, parsedData });
     setOpenDrawer(true);
   };
 
   const dataFiltered = applyFilter({
-    inputData: TABLE_DATA,
+    inputData: tableData,
     comparator: getComparator(order, orderBy),
-    filterName,
     filterStatus,
   });
+
+  const isNotFound = !dataFiltered.length && !loading;
 
   return (
     <>
       <Head>
-        <title> Webhook Logs | PayLens</title>
+        <title> Webhook Logs | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 5 }}>
-          <Typography variant="h3">Webhook Logs</Typography>
-          <Button variant="contained" startIcon={<Iconify icon="eva:refresh-fill" />}>
-            Refresh Logs
+          <Box>
+            <Typography variant="h3" sx={{ mb: 1 }}>
+              Webhook Logs
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Track and debug real-time event notifications sent to your endpoints.
+            </Typography>
+          </Box>
+          <Button
+            variant="contained"
+            startIcon={<Iconify icon="eva:refresh-fill" />}
+            onClick={fetchData}
+            disabled={loading}
+          >
+            Refresh
           </Button>
         </Stack>
 
         <Card>
           <Tabs
             value={filterStatus}
-            onChange={(e, newValue) => setFilterStatus(newValue)}
+            onChange={(e, newValue) => {
+              setFilterStatus(newValue);
+              setPage(0);
+            }}
             sx={{ px: 2, bgcolor: 'background.neutral' }}
           >
             {['all', 'success', 'failed'].map((tab) => (
               <Tab key={tab} label={tab} value={tab} sx={{ textTransform: 'capitalize' }} />
             ))}
           </Tabs>
-
-          
 
           <TableContainer sx={{ position: 'relative', overflow: 'unset' }}>
             <Scrollbar>
@@ -166,45 +155,60 @@ export default function WebhookLogsPage() {
                 />
 
                 <TableBody>
-                  {dataFiltered
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((row: WebhookLog) => (
-                      <TableRow hover key={row.id}>
-                        <TableCell sx={{ fontWeight: 'bold' }}>{row.event}</TableCell>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={5} sx={{ py: 10, textAlign: 'center' }}>
+                        <CircularProgress />
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    dataFiltered
+                      .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                      .map((row: { webhook_response: string | string[]; id: Key | null | undefined; event: string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | ReactFragment | ReactPortal | null | undefined; created_at: string | number | Date | null; transaction_id: string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | ReactFragment | ReactPortal | null | undefined; }) => {
+                        // Extracting status from webhook_response string if status_code is null
+                        const isSuccess = row.webhook_response?.includes('200 OK');
 
-                        <TableCell>
-                          <Box
-                            sx={{
-                              display: 'inline-flex',
-                              px: 1,
-                              py: 0.5,
-                              borderRadius: 0.75,
-                              typography: 'caption',
-                              fontWeight: 'bold',
-                              bgcolor: row.status === 200 ? 'success.lighter' : 'error.lighter',
-                              color: row.status === 200 ? 'success.dark' : 'error.dark',
-                            }}
-                          >
-                            {row.status}
-                          </Box>
-                        </TableCell>
+                        return (
+                          <TableRow hover key={row.id}>
+                            <TableCell sx={{ fontWeight: 'bold', textTransform: 'uppercase' }}>
+                              {row.event}
+                            </TableCell>
 
-                        <TableCell>{fDateTime(row.timestamp)}</TableCell>
+                            <TableCell>
+                              <Box
+                                sx={{
+                                  display: 'inline-flex',
+                                  px: 1,
+                                  py: 0.5,
+                                  borderRadius: 0.75,
+                                  typography: 'caption',
+                                  fontWeight: 'bold',
+                                  bgcolor: isSuccess ? 'success.lighter' : 'error.lighter',
+                                  color: isSuccess ? 'success.dark' : 'error.dark',
+                                }}
+                              >
+                                {isSuccess ? '200 OK' : 'FAILED'}
+                              </Box>
+                            </TableCell>
 
-                        <TableCell sx={{ color: 'text.secondary', typography: 'caption' }}>
-                          {row.id}
-                        </TableCell>
+                            <TableCell>{fDateTime(row.created_at)}</TableCell>
 
-                        <TableCell align="right">
-                          <Tooltip title="View Details">
-                            <IconButton onClick={() => handleOpenDrawer(row)} color="primary">
-                              <Iconify icon="eva:eye-fill" />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  <TableNoData isNotFound={!dataFiltered.length} />
+                            <TableCell sx={{ color: 'text.secondary', typography: 'caption' }}>
+                              {row.transaction_id}
+                            </TableCell>
+
+                            <TableCell align="right">
+                              <Tooltip title="View Payload">
+                                <IconButton onClick={() => handleOpenDrawer(row)} color="primary">
+                                  <Iconify icon="eva:eye-fill" />
+                                </IconButton>
+                              </Tooltip>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                  )}
+                  <TableNoData isNotFound={isNotFound} />
                 </TableBody>
               </Table>
             </Scrollbar>
@@ -225,7 +229,7 @@ export default function WebhookLogsPage() {
         anchor="right"
         open={openDrawer}
         onClose={() => setOpenDrawer(false)}
-        PaperProps={{ sx: { width: { xs: 1, sm: 480 } } }}
+        PaperProps={{ sx: { width: { xs: 1, sm: 560 } } }}
       >
         {selectedLog && (
           <Box sx={{ p: 3 }}>
@@ -246,32 +250,33 @@ export default function WebhookLogsPage() {
                 <Typography variant="caption" color="text.secondary" display="block">
                   Target URL
                 </Typography>
-                <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
-                  {selectedLog.url}
+                <Typography variant="subtitle2" sx={{ wordBreak: 'break-all' }}>
+                  {selectedLog.webhook_url}
                 </Typography>
               </Box>
 
               <Box>
                 <Typography variant="subtitle2" gutterBottom>
-                  Response Body
+                  Full Server Response
                 </Typography>
                 <Box
                   sx={{
                     p: 1.5,
-                    bgcolor: 'error.lighter',
-                    color: 'error.dark',
+                    bgcolor: '#1C252E',
+                    color: '#45FFBC',
                     borderRadius: 1,
                     typography: 'caption',
                     fontFamily: 'monospace',
+                    whiteSpace: 'pre-wrap',
                   }}
                 >
-                  {selectedLog.response}
+                  {selectedLog.webhook_response}
                 </Box>
               </Box>
 
               <Box>
                 <Typography variant="subtitle2" gutterBottom>
-                  JSON Payload
+                  JSON Payload (webhook_data)
                 </Typography>
                 <Box
                   sx={{
@@ -280,15 +285,23 @@ export default function WebhookLogsPage() {
                     color: '#BCC2C8',
                     borderRadius: 1,
                     fontFamily: 'monospace',
-                    fontSize: '0.8rem',
+                    fontSize: '0.85rem',
                     overflow: 'auto',
                   }}
                 >
-                  <pre>{JSON.stringify(selectedLog.payload, null, 2)}</pre>
+                  <pre>{JSON.stringify(selectedLog.parsedData, null, 2)}</pre>
                 </Box>
               </Box>
 
-              <Button fullWidth variant="contained" startIcon={<Iconify icon="eva:refresh-fill" />}>
+              <Button
+                fullWidth
+                variant="contained"
+                size="large"
+                startIcon={<Iconify icon="eva:refresh-fill" />}
+                onClick={() =>
+                  alert('Resend functionality to be implemented with backend endpoint.')
+                }
+              >
                 Resend This Webhook
               </Button>
             </Stack>
@@ -301,7 +314,7 @@ export default function WebhookLogsPage() {
 
 // ----------------------------------------------------------------------
 
-function applyFilter({ inputData, comparator, filterName, filterStatus }: any) {
+function applyFilter({ inputData, comparator, filterStatus }: any) {
   const stabilizedThis = inputData.map((el: any, index: number) => [el, index]);
   stabilizedThis.sort((a: any, b: any) => {
     const order = comparator(a[0], b[0]);
@@ -310,18 +323,11 @@ function applyFilter({ inputData, comparator, filterName, filterStatus }: any) {
   });
   inputData = stabilizedThis.map((el: any) => el[0]);
 
-  if (filterName) {
-    inputData = inputData.filter(
-      (item: any) =>
-        item.event.toLowerCase().includes(filterName.toLowerCase()) ||
-        item.id.toLowerCase().includes(filterName.toLowerCase())
-    );
-  }
-
   if (filterStatus !== 'all') {
-    inputData = inputData.filter((item: any) =>
-      filterStatus === 'success' ? item.status === 200 : item.status !== 200
-    );
+    inputData = inputData.filter((item: any) => {
+      const isSuccess = item.webhook_response?.includes('200 OK');
+      return filterStatus === 'success' ? isSuccess : !isSuccess;
+    });
   }
 
   return inputData;

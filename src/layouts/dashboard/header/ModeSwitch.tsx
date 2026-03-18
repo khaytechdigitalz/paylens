@@ -78,7 +78,7 @@ export default function ModeSwitch() {
       }
     } catch (error) {
       console.error('Mode Update Error:', error);
-      enqueueSnackbar('Failed to update environment mode', { variant: 'error' });
+      enqueueSnackbar(error?.message, { variant: 'error' });
     } finally {
       setLoading(false);
     }

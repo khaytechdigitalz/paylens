@@ -131,7 +131,7 @@ export default function PageOne() {
         <title>Dashboard | CredDot</title>
       </Head>
       <>{!verification && <BVNAlert />}</>
-      
+
       <Container maxWidth={themeStretch ? false : 'xl'}>
         <Grid container spacing={3}>
           {/* HERO: ACCOUNT BALANCE & TOGGLE */}
@@ -222,18 +222,24 @@ export default function PageOne() {
                   <Stack direction="row" spacing={2} justifyContent={{ md: 'flex-end' }}>
                     <ActionButton
                       link="payout/history"
-                      icon="solar:square-transfer-horizontal-bold-duotone"
-                      label="Transfer"
+                      icon="solar:wallet-bold-duotone"
+                      label="Payout"
                     />
                     <ActionButton
                       link="bills/history"
-                      icon="solar:card-send-bold-duotone"
-                      label="Pay Bills"
+                      icon="solar:cart-large-minimalistic-bold-duotone"
+                      label="Bills"
                     />
                     <ActionButton
                       link="pos/history"
-                      icon="solar:add-circle-bold-duotone"
-                      label="Request POS"
+                      icon="solar:smartphone-bold-duotone"
+                      label="POS"
+                    />
+
+                    <ActionButton
+                      link="virtualcard/history"
+                      icon="solar:card-send-bold-duotone"
+                      label="Cards"
                     />
                   </Stack>
                 </Grid>
