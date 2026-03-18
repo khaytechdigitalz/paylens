@@ -42,6 +42,7 @@ import axios from '../../../utils/axios';
 // ----------------------------------------------------------------------
 
 const TABLE_HEAD = [
+  { id: 'ip_address', label: 'IP Address', align: 'left' },
   { id: 'event', label: 'Event Type', align: 'left' },
   { id: 'status', label: 'Status', align: 'left' },
   { id: 'timestamp', label: 'Timestamp', align: 'left' },
@@ -164,49 +165,77 @@ export default function WebhookLogsPage() {
                   ) : (
                     dataFiltered
                       .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                      .map((row: { webhook_response: string | string[]; id: Key | null | undefined; event: string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | ReactFragment | ReactPortal | null | undefined; created_at: string | number | Date | null; transaction_id: string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | ReactFragment | ReactPortal | null | undefined; }) => {
-                        // Extracting status from webhook_response string if status_code is null
-                        const isSuccess = row.webhook_response?.includes('200 OK');
+                      .map(
+                        (row: {
+                          ip_address: string | string[];
+                          webhook_response: string | string[];
+                          id: Key | null | undefined;
+                          event:
+                            | string
+                            | number
+                            | boolean
+                            | ReactElement<any, string | JSXElementConstructor<any>>
+                            | ReactFragment
+                            | ReactPortal
+                            | null
+                            | undefined;
+                          created_at: string | number | Date | null;
+                          transaction_id:
+                            | string
+                            | number
+                            | boolean
+                            | ReactElement<any, string | JSXElementConstructor<any>>
+                            | ReactFragment
+                            | ReactPortal
+                            | null
+                            | undefined;
+                        }) => {
+                          // Extracting status from webhook_response string if status_code is null
+                          const isSuccess = row.webhook_response?.includes('200 OK');
 
-                        return (
-                          <TableRow hover key={row.id}>
-                            <TableCell sx={{ fontWeight: 'bold', textTransform: 'uppercase' }}>
-                              {row.event}
-                            </TableCell>
+                          return (
+                            <TableRow hover key={row.id}>
+                              <TableCell sx={{ fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                {row.ip_address}
+                              </TableCell>
+                              <TableCell sx={{ fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                {row.event}
+                              </TableCell>
 
-                            <TableCell>
-                              <Box
-                                sx={{
-                                  display: 'inline-flex',
-                                  px: 1,
-                                  py: 0.5,
-                                  borderRadius: 0.75,
-                                  typography: 'caption',
-                                  fontWeight: 'bold',
-                                  bgcolor: isSuccess ? 'success.lighter' : 'error.lighter',
-                                  color: isSuccess ? 'success.dark' : 'error.dark',
-                                }}
-                              >
-                                {isSuccess ? '200 OK' : 'FAILED'}
-                              </Box>
-                            </TableCell>
+                              <TableCell>
+                                <Box
+                                  sx={{
+                                    display: 'inline-flex',
+                                    px: 1,
+                                    py: 0.5,
+                                    borderRadius: 0.75,
+                                    typography: 'caption',
+                                    fontWeight: 'bold',
+                                    bgcolor: isSuccess ? 'success.lighter' : 'error.lighter',
+                                    color: isSuccess ? 'success.dark' : 'error.dark',
+                                  }}
+                                >
+                                  {isSuccess ? '200 OK' : 'FAILED'}
+                                </Box>
+                              </TableCell>
 
-                            <TableCell>{fDateTime(row.created_at)}</TableCell>
+                              <TableCell>{fDateTime(row.created_at)}</TableCell>
 
-                            <TableCell sx={{ color: 'text.secondary', typography: 'caption' }}>
-                              {row.transaction_id}
-                            </TableCell>
+                              <TableCell sx={{ color: 'text.secondary', typography: 'caption' }}>
+                                {row.transaction_id}
+                              </TableCell>
 
-                            <TableCell align="right">
-                              <Tooltip title="View Payload">
-                                <IconButton onClick={() => handleOpenDrawer(row)} color="primary">
-                                  <Iconify icon="eva:eye-fill" />
-                                </IconButton>
-                              </Tooltip>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
+                              <TableCell align="right">
+                                <Tooltip title="View Payload">
+                                  <IconButton onClick={() => handleOpenDrawer(row)} color="primary">
+                                    <Iconify icon="eva:eye-fill" />
+                                  </IconButton>
+                                </Tooltip>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        }
+                      )
                   )}
                   <TableNoData isNotFound={isNotFound} />
                 </TableBody>
