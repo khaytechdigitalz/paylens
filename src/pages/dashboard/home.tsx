@@ -57,6 +57,8 @@ export default function PageOne() {
 
   const [wallets, setWallets] = useState<any[]>([]);
   const [verification, setVerifications] = useState<any[]>([]);
+  const [business, setBusiiness] = useState(''); // Now business is a string
+
   const [stats, setStats] = useState({ totalinflow: 0, totaloutflow: 0 });
   const [transactions, setTransactions] = useState([]);
   const [chartData, setChartData] = useState<any>(null);
@@ -67,17 +69,17 @@ export default function PageOne() {
       try {
         setLoading(true);
         const res = await axios.get('/dashboard');
-
         if (res.data?.data) {
           const d = res.data.data;
           setWallets(d.wallets || []);
           setVerifications(d.verification.bvn);
+          setBusiiness(d.account_type);
           setStats(d.overall_stats || { totalinflow: 0, totaloutflow: 0 });
           setTransactions(d.recent_transactions || []);
           setChartData({
             inflow: d.chart?.inflow || [],
             outflow: d.chart?.outflow || [],
-            bills: d.chart?.bills?.breakdown || {
+            bills: d.bills?.breakdown || {
               airtime: 0,
               cabletv: 0,
               internet: 0,
@@ -230,11 +232,15 @@ export default function PageOne() {
                       icon="solar:cart-large-minimalistic-bold-duotone"
                       label="Bills"
                     />
-                    <ActionButton
-                      link="pos/history"
-                      icon="solar:smartphone-bold-duotone"
-                      label="POS"
-                    />
+                    <>
+                      {business === 'business' && (
+                        <ActionButton
+                          link="pos/history"
+                          icon="solar:smartphone-bold-duotone"
+                          label="POS"
+                        />
+                      )}
+                    </>
 
                     <ActionButton
                       link="virtualcard/history"
@@ -300,7 +306,7 @@ export default function PageOne() {
             <Stack spacing={3}>
               {/* Bills Distribution - Now takes priority in sidebar */}
               <BankingExpensesCategories
-                title="Category Breakdown"
+                title="Bills Breakdown"
                 chart={{
                   series: [
                     { label: 'Airtime', value: Number(chartData?.bills?.airtime || 0) },

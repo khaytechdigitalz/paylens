@@ -1,12 +1,9 @@
 // i18n
 import '../locales/i18n';
 
-// scroll bar
-import 'simplebar/src/simplebar.css';
+// scroll bar 
 
-// lazy image
-import 'slick-carousel/slick/slick.css';
-import 'slick-carousel/slick/slick-theme.css';
+// lazy image 
 // ----------------------------------------------------------------------
 
 import { CacheProvider, EmotionCache } from '@emotion/react';

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import { useSnackbar } from 'notistack';
 // @mui
 import {
   Box,
@@ -50,6 +51,7 @@ export default function POSTerminalPage() {
   const router = useRouter();
   const { themeStretch } = useSettingsContext();
 
+  const { enqueueSnackbar } = useSnackbar();
   const [summary, setSummary] = useState<any>(null);
   const [terminals, setTerminals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,11 +64,13 @@ export default function POSTerminalPage() {
       setSummary(response.data.summary);
       setTerminals(response.data.data);
     } catch (error) {
+      enqueueSnackbar('Failed to load terminals', { variant: 'error' });
+
       setErrorMessage('Unable to synchronize terminal data.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [enqueueSnackbar]);
 
   useEffect(() => {
     fetchData();

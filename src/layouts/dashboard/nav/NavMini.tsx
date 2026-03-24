@@ -14,6 +14,9 @@ import NavToggleButton from './NavToggleButton';
 // ----------------------------------------------------------------------
 
 export default function NavMini() {
+  // FIX: Execute the navConfig function to get the actual data array
+  const data = typeof navConfig === 'function' ? navConfig() : navConfig;
+
   return (
     <Box
       component="nav"
@@ -36,12 +39,16 @@ export default function NavMini() {
           position: 'fixed',
           width: NAV.W_DASHBOARD_MINI,
           borderRight: (theme) => `dashed 1px ${theme.palette.divider}`,
+          bgcolor: 'background.default',
           ...hideScrollbarX,
         }}
       >
         <Logo sx={{ mx: 'auto', my: 2 }} />
 
-        <NavSectionMini data={navConfig} />
+        <Box sx={{ flexGrow: 1, overflowY: 'auto', ...hideScrollbarX }}>
+          {/* FIX: Use the resolved 'data' variable instead of the raw navConfig */}
+          <NavSectionMini data={data} />
+        </Box>
       </Stack>
     </Box>
   );

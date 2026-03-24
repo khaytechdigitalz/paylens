@@ -90,7 +90,6 @@ export default function BankingExpensesCategories({ title, subheader, chart, ...
       </Box>
 
       <Divider />
- 
     </StyledRoot>
   );
 }

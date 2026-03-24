@@ -1,4 +1,4 @@
-import { useState, memo, useEffect } from 'react';
+import { useState, memo, useEffect, useMemo } from 'react';
 import parse from 'autosuggest-highlight/parse';
 import match from 'autosuggest-highlight/match';
 // next
@@ -23,8 +23,8 @@ import Iconify from '../../../components/iconify';
 import { NavListProps } from '../../../components/nav-section';
 import { IconButtonAnimate } from '../../../components/animate';
 import SearchNotFound from '../../../components/search-not-found';
-//
-import NavConfig from '../nav/config-navigation';
+// Hook Import
+import useNavConfig from '../nav/config-navigation';
 
 // ----------------------------------------------------------------------
 
@@ -101,20 +101,26 @@ function Searchbar() {
 
   const [searchQuery, setSearchQuery] = useState('');
 
-  const reduceItems = NavConfig.map((list) =>
-    handleLoop(list.items, (list as any).subheader)
-  ).flat();
+  // Get the dynamic/filtered navigation configuration
+  const navConfig = useNavConfig();
 
-  const allItems = flattenArray(reduceItems).map((option) => {
-    const group = splitPath(reduceItems, option.path);
+  // Process all items for search, respecting the current user permissions
+  const allItems = useMemo(() => {
+    const reduceItems = navConfig
+      .map((list) => handleLoop(list.items, (list as any).subheader))
+      .flat();
 
-    return {
-      group: group && group.length > 1 ? group[0] : (option as Option).subheader,
-      title: option.title,
-      path: option.path,
-      indexKey: 'minimal',
-    };
-  });
+    return flattenArray(reduceItems).map((option) => {
+      const group = splitPath(reduceItems, option.path);
+
+      return {
+        group: group && group.length > 1 ? group[0] : (option as Option).subheader,
+        title: option.title,
+        path: option.path,
+        indexKey: 'minimal',
+      };
+    });
+  }, [navConfig]);
 
   useEffect(() => {
     if (open) {

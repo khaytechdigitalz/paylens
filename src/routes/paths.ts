@@ -26,6 +26,13 @@ export const PATH_DASHBOARD = {
     history: path(ROOTS_DASHBOARD, '/pos/history'),
     details: (details: string) => path(ROOTS_DASHBOARD, `/pos/${details}/details`),
     transactions: path(ROOTS_DASHBOARD, '/pos/transactions'),
+  }, 
+  
+  ticket: {
+    root: path(ROOTS_DASHBOARD, '/ticket'),
+    history: path(ROOTS_DASHBOARD, '/ticket/history'),
+    create: path(ROOTS_DASHBOARD, '/ticket/create'),
+    details: (details: string) => path(ROOTS_DASHBOARD, `/ticket/${details}/details`),
   },
 
   funding: {
@@ -67,16 +74,24 @@ export const PATH_DASHBOARD = {
 
   settlement: path(ROOTS_DASHBOARD, '/settlement/history'),
 
+  /*
   paymentlink: {
     root: path(ROOTS_DASHBOARD, '/paymentlink'),
     history: path(ROOTS_DASHBOARD, '/paymentlink/history'),
     details: (details: string) => path(ROOTS_DASHBOARD, `/paymentlink/${details}/details`),
   },
+  */
 
   business: {
   root: path(ROOTS_DASHBOARD, '/business'),
   settings: path(ROOTS_DASHBOARD, '/business/settings'),
   settlement: path(ROOTS_DASHBOARD, '/business/settlement'),
+  },
+
+  profile: {
+  root: path(ROOTS_DASHBOARD, '/profile'),
+  settings: path(ROOTS_DASHBOARD, '/profile/settings'),
+  password: path(ROOTS_DASHBOARD, '/profile/password'),
   },
   apiconfig: path(ROOTS_DASHBOARD, '/api/config'),
   apiwebhook: path(ROOTS_DASHBOARD, '/api/webhooks'),

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 // @mui
 import { alpha } from '@mui/material/styles';
-import { Box, Divider, Typography, Stack, MenuItem } from '@mui/material';
+import { Box, Divider, Typography, Stack, MenuItem, Avatar } from '@mui/material';
 // routes
 import { PATH_AUTH } from '../../../routes/paths';
 // auth
@@ -23,11 +23,7 @@ const OPTIONS = [
   },
   {
     label: 'Profile',
-    linkTo: '/dashboard/profile',
-  },
-  {
-    label: 'Settings',
-    linkTo: '/dashboard/settings',
+    linkTo: '/dashboard/profile/settings',
   },
 ];
 
@@ -85,7 +81,15 @@ export default function AccountPopover() {
           }),
         }}
       >
-        <CustomAvatar src={user?.avatar} alt={user?.name} name={user?.name} />
+        <Avatar
+          src={user?.avatar_url}
+          sx={{
+            width: 30,
+            height: 30,
+            mx: 'auto',
+          }}
+        />
+        <>{/* <CustomAvatar src={user?.avatar} alt={user?.name} name={user?.name} /> */}</>
       </IconButtonAnimate>
 
       <MenuPopover open={openPopover} onClose={handleClosePopover} sx={{ width: 200, p: 0 }}>
