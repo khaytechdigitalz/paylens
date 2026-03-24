@@ -16,6 +16,9 @@ import navConfig from './config-navigation';
 function NavHorizontal() {
   const theme = useTheme();
 
+  // FIX: Resolve the navConfig data before passing it down
+  const data = typeof navConfig === 'function' ? navConfig() : navConfig;
+
   return (
     <AppBar
       component="nav"
@@ -32,7 +35,8 @@ function NavHorizontal() {
           }),
         }}
       >
-        <NavSectionHorizontal data={navConfig} />
+        {/* FIX: Use the resolved 'data' variable */}
+        <NavSectionHorizontal data={data} />
       </Toolbar>
 
       <Shadow />
