@@ -15,7 +15,9 @@ export const PATH_AUTH = {
   register: '/register',
   forgotpassword: '/forgotpassword',
   api: '/documentation/overview',
+  checkout: (id: string) =>`transaction/checkout/${id}`,
 };
+
 
 export const PATH_DASHBOARD = {
   root: ROOTS_DASHBOARD,

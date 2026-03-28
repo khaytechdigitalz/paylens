@@ -237,45 +237,7 @@ export default function BusinessSettingsPage() {
           {/* Right Column: Security & Settlements */}
           <Grid item xs={12} md={4}>
             <Stack spacing={3}>
-              <Card sx={{ p: 3, border: `1px solid ${theme.palette.divider}` }}>
-                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
-                  <Box
-                    sx={{
-                      p: 1,
-                      bgcolor: alpha(theme.palette.warning.main, 0.1),
-                      borderRadius: 1,
-                      display: 'flex',
-                    }}
-                  >
-                    <Iconify icon="eva:shield-fill" sx={{ color: 'warning.main' }} />
-                  </Box>
-                  <Typography variant="subtitle1">Security Level</Typography>
-                </Stack>
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  label="Authentication"
-                  value={form.authentication_method}
-                  onChange={(e) => handleChange('authentication_method', e.target.value)}
-                  sx={{ mb: 2 }}
-                >
-                  <MenuItem value="otp">Email OTP</MenuItem>
-                  <MenuItem value="pin">Transaction PIN</MenuItem>
-                </TextField>
-
-                {form.authentication_method === 'pin' && (
-                  <Button
-                    fullWidth
-                    variant="soft"
-                    onClick={() => setOpenPinModal(true)}
-                    startIcon={<Iconify icon="eva:lock-outline" />}
-                  >
-                    {form.pin ? 'PIN Prepared' : 'Setup Transaction PIN'}
-                  </Button>
-                )}
-              </Card>
-
+              
               <Card sx={{ p: 3 }}>
                 <Typography variant="subtitle1" gutterBottom>
                   Auto-Settlement

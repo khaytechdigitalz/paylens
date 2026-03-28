@@ -318,32 +318,36 @@ export default function PageOne() {
               />
 
               {/* API Status Widget */}
-              <Card
-                sx={{
-                  p: 2.5,
-                  bgcolor: alpha(theme.palette.primary.main, 0.03),
-                  border: `1px dashed ${theme.palette.primary.main}`,
-                  borderRadius: 2,
-                }}
-              >
-                <Stack direction="row" spacing={2} alignItems="center">
-                  <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
-                    <Iconify icon="solar:key-minimalistic-bold-duotone" />
-                  </Avatar>
-                  <Box>
-                    <Typography variant="subtitle2">API Credentials</Typography>
-                    <Typography
-                      variant="caption"
-                      sx={{ color: 'success.main', fontWeight: 'bold' }}
-                    >
-                      {isLive ? 'Live' : 'Test'} Mode Active
-                    </Typography>
-                  </Box>
-                  <Button size="small" variant="soft" sx={{ ml: 'auto' }}>
-                    View
-                  </Button>
-                </Stack>
-              </Card>
+              <>
+                {business === 'business' && (
+                  <Card
+                    sx={{
+                      p: 2.5,
+                      bgcolor: alpha(theme.palette.primary.main, 0.03),
+                      border: `1px dashed ${theme.palette.primary.main}`,
+                      borderRadius: 2,
+                    }}
+                  >
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
+                        <Iconify icon="solar:key-minimalistic-bold-duotone" />
+                      </Avatar>
+                      <Box>
+                        <Typography variant="subtitle2">API Credentials</Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{ color: 'success.main', fontWeight: 'bold' }}
+                        >
+                          {isLive ? 'Live' : 'Test'} Mode Active
+                        </Typography>
+                      </Box>
+                      <Button size="small" variant="soft" sx={{ ml: 'auto' }}>
+                        View
+                      </Button>
+                    </Stack>
+                  </Card>
+                )}
+              </>
 
               {/* Referral/Invite */}
               <BankingInviteFriends

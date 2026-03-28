@@ -21,6 +21,7 @@ import {
   Tabs,
   TextField,
   Alert,
+  MenuItem,
 } from '@mui/material';
 // To this:
 import { LoadingButton } from '@mui/lab';
@@ -61,13 +62,22 @@ export default function ProfileSettingsPage() {
     new_password_confirmation: '',
   });
 
-  // 2FA States
+  // 2FA States// 1. Initialize state based on the user object
+  const [pinType, setPinType] = useState(user?.authentication || 'email');
+  const [pinData, setPinData] = useState({ pin: '', password: '' });
+
+  // 2. Sync state if user data is loaded asynchronously (optional but recommended)
+  useEffect(() => {
+    if (user?.authentication) {
+      setPinType(user.authentication);
+    }
+  }, [user?.authentication]);
   const [twoFaStep, setTwoFaStep] = useState<'initial' | 'input'>('initial');
   const [twoFaPin, setTwoFaPin] = useState('');
   const [authMessage, setAuthMessage] = useState('');
-
+  // authentication
   // UI Toggle States
-const [showPasswordDiv, setShowPasswordDiv] = useState(false);
+  const [showPasswordDiv, setShowPasswordDiv] = useState(false);
   const fetchProfile = useCallback(async () => {
     setLoading(true);
     try {
@@ -154,6 +164,25 @@ const [showPasswordDiv, setShowPasswordDiv] = useState(false);
     }
   };
 
+  const handleUpdatePin = async () => {
+    setActionLoading(true);
+    try {
+      const payload = {
+        authentication_method: pinType,
+        ...(pinType === 'pin' && { pin: pinData.pin, password: pinData.password }),
+      };
+      const response = await axios.post('/profile/updatepin', payload);
+      if (response.data.status) {
+        enqueueSnackbar(response.data.message);
+        setPinData({ pin: '', password: '' });
+      }
+    } catch (error) {
+      enqueueSnackbar(error.message || 'Error updating PIN', { variant: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading)
     return (
       <Box sx={{ py: 10, textAlign: 'center' }}>
@@ -197,6 +226,12 @@ const [showPasswordDiv, setShowPasswordDiv] = useState(false);
             label="2FA Security"
             value="2fa"
             icon={<Iconify icon="solar:shield-check-bold-duotone" width={22} />}
+            iconPosition="start"
+          />
+          <Tab
+            label="Transaction PIN"
+            value="pin_settings"
+            icon={<Iconify icon="solar:key-bold-duotone" width={22} />}
             iconPosition="start"
           />
         </Tabs>
@@ -438,6 +473,102 @@ const [showPasswordDiv, setShowPasswordDiv] = useState(false);
                     </Stack>
                   </Stack>
                 )}
+              </Card>
+            </Grid>
+          )}
+
+          {/* Tab 4: Transaction PIN Settings */}
+          {currentTab === 'pin_settings' && (
+            <Grid item xs={12} md={8}>
+              <Card sx={{ p: 4 }}>
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  Transaction Authorization
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+                  Control how your funds are moved. Switch between automated Email OTP or a manual
+                  Security PIN.
+                </Typography>
+
+                <Stack spacing={3}>
+                  <TextField
+                    select
+                    fullWidth
+                    label="Authorization Method"
+                    value={pinType}
+                    onChange={(e) => {
+                      setPinType(e.target.value);
+                      // Clear pin data when switching types to keep form clean
+                      setPinData({ pin: '', password: '' });
+                    }}
+                  >
+                    <MenuItem value="email">Email OTP (Secure & Automated)</MenuItem>
+                    <MenuItem value="pin">Static Transaction PIN (Faster)</MenuItem>
+                  </TextField>
+
+                  {/* Only show the PIN/Password fields if:
+            1. 'pin' is selected AND 
+            2. The user's CURRENT method isn't already 'pin' 
+               (or if they want to update their existing PIN)
+        */}
+                  {pinType === 'pin' && (
+                    <Stack
+                      spacing={3}
+                      sx={{
+                        p: 3,
+                        borderRadius: 2,
+                        bgcolor: (theme) => alpha(theme.palette.primary.main, 0.04),
+                        border: (theme) => `1px dashed ${alpha(theme.palette.primary.main, 0.2)}`,
+                      }}
+                    >
+                      <Typography
+                        variant="caption"
+                        sx={{ color: 'primary.main', fontWeight: 'bold' }}
+                      >
+                        {user?.authentication === 'pin'
+                          ? 'UPDATE TRANSACTION PIN'
+                          : 'SET NEW TRANSACTION PIN'}
+                      </Typography>
+
+                      <TextField
+                        fullWidth
+                        type="password"
+                        label="4-Digit PIN"
+                        placeholder="****"
+                        value={pinData.pin}
+                        onChange={(e) => setPinData({ ...pinData, pin: e.target.value })}
+                        inputProps={{ maxLength: 4 }}
+                      />
+                      <TextField
+                        fullWidth
+                        type="password"
+                        label="Account Password"
+                        placeholder="Confirm with login password"
+                        value={pinData.password}
+                        onChange={(e) => setPinData({ ...pinData, password: e.target.value })}
+                      />
+                    </Stack>
+                  )}
+
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <LoadingButton
+                      variant="contained"
+                      size="large"
+                      loading={actionLoading}
+                      onClick={handleUpdatePin}
+                      // Disable if:
+                      // 1. PIN mode is selected but fields are empty
+                      // 2. Email is selected but user is ALREADY on email (nothing to change)
+                      disabled={
+                        (pinType === 'pin' && (!pinData.pin || !pinData.password)) ||
+                        (pinType === 'email' && user?.authentication === 'email')
+                      }
+                    >
+                      {user?.authentication === pinType && pinType === 'email'
+                        ? 'Already Active'
+                        : 'Save Settings'}
+                    </LoadingButton>
+                  </Box>
+                </Stack>
               </Card>
             </Grid>
           )}

@@ -127,7 +127,7 @@ const router = useRouter();
   return (
     <>
       <Head>
-        <title> API Configuration | PayLens</title>
+        <title> API Configuration | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>
@@ -297,8 +297,7 @@ const router = useRouter();
                     <Typography variant="h6">Integration Help</Typography>
                   </Stack>
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    Need to integrate <b>X-PayLens</b> API ? please click the button below to
-                    proceed.
+                    Need to integrate <b>CredDot</b> API ? please click the button below to proceed.
                   </Typography>
                   <Button
                     onClick={() => router.push('/documentation/overview')} // Added 'router.'
@@ -319,7 +318,7 @@ const router = useRouter();
                     <Typography variant="h6">Webhook Notification</Typography>
                   </Stack>
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    Every webhook request contains a <b>X-PayLens-Signature</b> header for security
+                    Every webhook request contains a <b>CredDot-Signature</b> header for security
                     verification.
                   </Typography>
                   <Button

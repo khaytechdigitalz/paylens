@@ -7,9 +7,10 @@ import { Box, Stack, Drawer } from '@mui/material';
 import useResponsive from '../../../hooks/useResponsive';
 // config
 import { NAV } from '../../../config-global';
+// utils
+import { hideScrollbarX } from '../../../utils/cssStyles';
 // components
 import Logo from '../../../components/logo';
-import Scrollbar from '../../../components/scrollbar';
 import { NavSectionVertical } from '../../../components/nav-section';
 // Updated Hook Import
 import useNavConfig from './config-navigation';
@@ -29,7 +30,6 @@ export default function NavVertical({ openNav, onCloseNav }: Props) {
 
   const isDesktop = useResponsive('up', 'lg');
 
-  // 1. Initialize the hook to get the filtered navigation data
   const navConfig = useNavConfig();
 
   useEffect(() => {
@@ -40,14 +40,13 @@ export default function NavVertical({ openNav, onCloseNav }: Props) {
   }, [pathname]);
 
   const renderContent = (
-    <Scrollbar
+    <Stack
       sx={{
         height: 1,
-        '& .simplebar-content': {
-          height: 1,
-          display: 'flex',
-          flexDirection: 'column',
-        },
+        // FIX: This enables the vertical "sliding" (scrolling)
+        // We use overflowY auto and hide the horizontal scrollbar
+        overflowY: 'auto',
+        ...hideScrollbarX,
       }}
     >
       <Stack
@@ -64,13 +63,18 @@ export default function NavVertical({ openNav, onCloseNav }: Props) {
         <NavAccount />
       </Stack>
 
-      {/* 2. Pass the dynamic navConfig to the section component */}
-      <NavSectionVertical data={navConfig} />
+      {/* Nav Section Area */}
+      <Box>
+        <NavSectionVertical data={navConfig} />
+      </Box>
 
+      {/* Spacing and Footer */}
       <Box sx={{ flexGrow: 1 }} />
 
-      <NavDocs />
-    </Scrollbar>
+      <Stack spacing={3} sx={{ pb: 3, px: 2.5, pt: 5, flexShrink: 0 }}>
+        <NavDocs />
+      </Stack>
+    </Stack>
   );
 
   return (
@@ -91,7 +95,7 @@ export default function NavVertical({ openNav, onCloseNav }: Props) {
             sx: {
               zIndex: 0,
               width: NAV.W_DASHBOARD,
-              bgcolor: 'transparent',
+              bgcolor: 'background.default',
               borderRightStyle: 'dashed',
             },
           }}
