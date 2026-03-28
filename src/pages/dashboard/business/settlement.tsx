@@ -91,7 +91,7 @@ export default function SettlementSetupPage() {
       const accountRes = await axios.get('/businesssettings/settlement/accounts');
       setSavedAccounts(accountRes.data.data);
     } catch (error) {
-      enqueueSnackbar(error.response?.data?.message || 'Update failed', { variant: 'error' });
+      enqueueSnackbar(error?.message || 'Update failed', { variant: 'error' });
     }
   };
 
@@ -111,7 +111,7 @@ export default function SettlementSetupPage() {
         enqueueSnackbar(response.data.message || 'Identity check failed', { variant: 'error' });
       }
     } catch (error) {
-      enqueueSnackbar(error.response?.data?.message || 'Verification error', { variant: 'error' });
+      enqueueSnackbar(error?.message || 'Verification error', { variant: 'error' });
     } finally {
       setVerifying(false);
     }
@@ -133,7 +133,7 @@ export default function SettlementSetupPage() {
       setIsVerified(false);
       initPage();
     } catch (error) {
-      enqueueSnackbar(error.response?.data?.message || 'Failed to save', { variant: 'error' });
+      enqueueSnackbar(error?.message || 'Failed to save', { variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -149,7 +149,7 @@ export default function SettlementSetupPage() {
   return (
     <>
       <Head>
-        <title> Settlement | PayLens</title>
+        <title> Settlement | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>

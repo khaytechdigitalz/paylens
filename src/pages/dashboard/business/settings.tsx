@@ -102,7 +102,8 @@ export default function BusinessSettingsPage() {
       await axios.post('/businesssettings/update', form);
       enqueueSnackbar('Business configuration updated!', { variant: 'success' });
     } catch (error) {
-      enqueueSnackbar('Failed to update settings', { variant: 'error' });
+      
+      enqueueSnackbar(error?.message || 'Failed to update settings', { variant: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -122,7 +123,7 @@ export default function BusinessSettingsPage() {
   return (
     <>
       <Head>
-        <title> Configuration | PayLens</title>
+        <title> Configuration | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'lg'}>
