@@ -1,9 +1,9 @@
 /* eslint-disable consistent-return */
 /* eslint-disable no-unsafe-optional-chaining */
 /* eslint-disable react/no-unknown-property */
+import Head from 'next/head';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
-import Head from 'next/head';
 // @mui
 import {
   Box,
@@ -23,10 +23,10 @@ import {
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
 // utils
-import axios from '../../../utils/axios';
+import axios from '../../utils/axios';
 // components
-import Iconify from '../../../components/iconify';
-import { useSettingsContext } from '../../../components/settings';
+import Iconify from '../../components/iconify';
+import { useSettingsContext } from '../../components/settings';
 
 // ----------------------------------------------------------------------
 
@@ -54,10 +54,16 @@ export default function CredDotCheckoutPage() {
   );
 
   // 1. Fetch Transaction Details
+
   const getTransactionDetails = useCallback(async () => {
+    // Use 'reference' from query string, or fall back to 'initialize' from dynamic path
+    const identifier = query.reference || query.initialize;
+
+    if (!identifier) return; // Don't fetch if nothing is found yet
+
     try {
       setLoading(true);
-      const response = await axios.get(`/transaction/details/${query.initialize}`);
+      const response = await axios.get(`/transaction/details/${identifier}`);
       if (response.data.status) {
         setTransactionData(response.data.data);
       } else {
@@ -68,7 +74,14 @@ export default function CredDotCheckoutPage() {
     } finally {
       setLoading(false);
     }
-  }, [query.initialize]);
+  }, [query.reference, query.initialize]);
+
+  // Update the listener to watch both possibilities
+  useEffect(() => {
+    if (query.reference || query.initialize) {
+      getTransactionDetails();
+    }
+  }, [query.reference, query.initialize, getTransactionDetails]);
 
   // 2. Verification Polling Logic
   useEffect(() => {

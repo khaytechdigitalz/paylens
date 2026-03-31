@@ -15,7 +15,8 @@ export const PATH_AUTH = {
   register: '/register',
   forgotpassword: '/forgotpassword',
   api: '/documentation/overview',
-  transaction: (initialize: string) => `/transaction/${initialize}/initialize`,
+  transaction:  `/transaction/initialize`,
+  // transaction: (initialize: string) => `/transaction/${initialize}/initialize`,
 };
 
 
