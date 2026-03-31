@@ -3,6 +3,7 @@
 /* eslint-disable react/no-unknown-property */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
+import Head from 'next/head';
 // @mui
 import {
   Box,
@@ -22,14 +23,14 @@ import {
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
 // utils
-import axios from '../../../../utils/axios';
+import axios from '../../../utils/axios';
 // components
-import Iconify from '../../../../components/iconify';
-import { useSettingsContext } from '../../../../components/settings';
+import Iconify from '../../../components/iconify';
+import { useSettingsContext } from '../../../components/settings';
 
 // ----------------------------------------------------------------------
 
-export default function FlutterwaveCheckoutPage() {
+export default function CredDotCheckoutPage() {
   const theme = useTheme();
   const { query, push } = useRouter(); // Added push for redirection
   const { themeStretch } = useSettingsContext();
@@ -56,7 +57,7 @@ export default function FlutterwaveCheckoutPage() {
   const getTransactionDetails = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/transaction/details/${query.checkout}`);
+      const response = await axios.get(`/transaction/details/${query.initialize}`);
       if (response.data.status) {
         setTransactionData(response.data.data);
       } else {
@@ -67,7 +68,7 @@ export default function FlutterwaveCheckoutPage() {
     } finally {
       setLoading(false);
     }
-  }, [query.checkout]);
+  }, [query.initialize]);
 
   // 2. Verification Polling Logic
   useEffect(() => {
@@ -115,8 +116,8 @@ export default function FlutterwaveCheckoutPage() {
   }, [isSubmitting, transactionData, push]);
 
   useEffect(() => {
-    if (query.checkout) getTransactionDetails();
-  }, [query.checkout, getTransactionDetails]);
+    if (query.initialize) getTransactionDetails();
+  }, [query.initialize, getTransactionDetails]);
 
   useEffect(() => {
     if (!transactionData?.transaction?.expires_at) return;
@@ -144,24 +145,33 @@ export default function FlutterwaveCheckoutPage() {
   const handleConfirmPaid = () => {
     setIsSubmitting(true);
   };
-
   if (loading)
     return (
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          bgcolor: 'background.default',
-        }}
-      >
-        <CircularProgress thickness={4} size={40} color="primary" />
-      </Box>
+      <>
+        <Head>
+          <title> Initializing Transaction | CredDot</title>
+        </Head>
+        <Box
+          sx={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: 'background.default',
+          }}
+        >
+          <CircularProgress thickness={4} size={40} color="primary" />
+        </Box>
+      </>
     );
 
   if (error)
     return (
+
+      <>
+        <Head>
+          <title> Initializing Failed | CredDot</title>
+        </Head>
       <Box
         sx={{
           minHeight: '100vh',
@@ -191,9 +201,15 @@ export default function FlutterwaveCheckoutPage() {
           </Button>
         </Stack>
       </Box>
+      </>
     );
 
   return (
+
+      <>
+        <Head>
+          <title> Initialized Transaction Checkout | CredDot</title>
+        </Head>
     <Box
       sx={{ minHeight: '100vh', bgcolor: '#f4f7f9', display: 'flex', alignItems: 'center', py: 5 }}
     >
@@ -547,5 +563,6 @@ export default function FlutterwaveCheckoutPage() {
         }
       `}</style>
     </Box>
+    </>
   );
 }
