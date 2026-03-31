@@ -76,13 +76,12 @@ export const PATH_DASHBOARD = {
 
   settlement: path(ROOTS_DASHBOARD, '/settlement/history'),
 
-  /*
+  
   paymentlink: {
     root: path(ROOTS_DASHBOARD, '/paymentlink'),
     history: path(ROOTS_DASHBOARD, '/paymentlink/history'),
     details: (details: string) => path(ROOTS_DASHBOARD, `/paymentlink/${details}/details`),
   },
-  */
 
   business: {
   root: path(ROOTS_DASHBOARD, '/business'),

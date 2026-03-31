@@ -83,9 +83,19 @@ export default function FlutterwaveCheckoutPage() {
 
           if (response.status === 200 && response.data.status === true) {
             setIsSubmitting(false);
+            const callback = response.data?.data.callback;
+            const status = response.data?.data.status;
+            const reference = response.data?.data.reference;
             // Redirect to success page or show success message
-            // push('/payment-success');
-            alert('Payment Verified Successfully!');
+            if (callback === null)
+            {
+              push('/payment-success');
+            }
+            else
+            {
+              window.location.href = `${callback}/?ref=${reference}&status=${status}`;
+            }
+              alert('Payment Verified Successfully!');
           }
         } catch (err) {
           console.error('Verification pending...');
@@ -244,11 +254,8 @@ export default function FlutterwaveCheckoutPage() {
                 </Typography>
                 <Box sx={{ my: 3 }}>
                   <Typography variant="h3" sx={{ fontWeight: 800, color: 'primary.main' }}>
-                    {transactionData?.transaction?.currency}{' '}
-                    {(
-                      transactionData?.transaction?.amount +
-                      (transactionData?.transaction?.fee || 0)
-                    ).toLocaleString()}
+                    {transactionData?.transaction?.amount_payable?.toLocaleString()}
+                    <small>{transactionData?.transaction?.currency} </small>
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
                     Includes processing fees
@@ -261,14 +268,16 @@ export default function FlutterwaveCheckoutPage() {
                     </Typography>
                     <Typography variant="subtitle2">
                       {transactionData?.transaction?.amount?.toLocaleString()}
+                      {transactionData?.transaction?.currency}{' '}
                     </Typography>
                   </Stack>
                   <Stack direction="row" justifyContent="space-between">
                     <Typography variant="body2" color="text.secondary">
-                      Gateway Fee
+                      Total Amount
                     </Typography>
                     <Typography variant="subtitle2">
-                      {(transactionData?.transaction?.fee || 0).toLocaleString()}
+                      {(transactionData?.transaction?.amount_payable || 0).toLocaleString()}
+                      {transactionData?.transaction?.currency}{' '}
                     </Typography>
                   </Stack>
                 </Stack>
