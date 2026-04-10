@@ -1,7 +1,7 @@
 /* eslint-disable arrow-body-style */
 /* eslint-disable no-nested-ternary */
 /* eslint-disable no-alert */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import * as XLSX from 'xlsx';
@@ -29,6 +29,7 @@ import {
   Select,
   FormControl,
   InputLabel,
+  LinearProgress,
 } from '@mui/material';
 // layouts
 import DashboardLayout from '../../../../layouts/dashboard';
@@ -36,6 +37,7 @@ import DashboardLayout from '../../../../layouts/dashboard';
 import Iconify from '../../../../components/iconify';
 import Scrollbar from '../../../../components/scrollbar';
 import StatWidget from '../../../../components/widgets/StatWidget';
+import CountWidget from '../../../../components/widgets/CountWidget';
 import { useSettingsContext } from '../../../../components/settings';
 import {
   useTable,
@@ -44,63 +46,21 @@ import {
   TablePaginationCustom,
 } from '../../../../components/table';
 // utils
+import axios from '../../../../utils/axios';
 import { fDateTime } from '../../../../utils/formatTime';
 import { fCurrency } from '../../../../utils/formatNumber';
 
 // ----------------------------------------------------------------------
 
 const TABLE_HEAD = [
-  { id: 'customer', label: 'Customer', align: 'left' },
+  { id: 'customer', label: 'Reference & Info', align: 'left' },
   { id: 'amount', label: 'Amount Paid', align: 'left' },
   { id: 'date', label: 'Payment Date', align: 'left' },
   { id: 'status', label: 'Status', align: 'left' },
-  { id: 'reference', label: 'Reference', align: 'right' },
+  { id: 'mode', label: 'Mode', align: 'right' },
 ];
 
 const STATUS_OPTIONS = ['all', 'success', 'failed', 'pending'];
-
-const MOCK_SALES = [
-  {
-    id: 'txn_001',
-    email: 'john.doe@example.com',
-    name: 'John Doe',
-    amount: 50.0,
-    currency: 'USD',
-    status: 'success',
-    date: '2026-01-10T10:30:00Z',
-    reference: 'PL-TRX-9921',
-  },
-  {
-    id: 'txn_002',
-    email: 'sarah.smith@provider.net',
-    name: 'Sarah Smith',
-    amount: 50.0,
-    currency: 'USD',
-    status: 'success',
-    date: '2026-01-12T14:20:00Z',
-    reference: 'PL-TRX-9925',
-  },
-  {
-    id: 'txn_003',
-    email: 'mike@startup.io',
-    name: 'Mike Johnson',
-    amount: 50.0,
-    currency: 'USD',
-    status: 'failed',
-    date: '2026-01-15T09:15:00Z',
-    reference: 'PL-TRX-9930',
-  },
-  {
-    id: 'txn_004',
-    email: 'linda.w@webmail.com',
-    name: 'Linda Wong',
-    amount: 50.0,
-    currency: 'USD',
-    status: 'pending',
-    date: '2026-01-17T11:45:00Z',
-    reference: 'PL-TRX-9942',
-  },
-];
 
 // ----------------------------------------------------------------------
 
@@ -110,9 +70,14 @@ PaymentLinkDetailsPage.getLayout = (page: React.ReactElement) => (
 
 export default function PaymentLinkDetailsPage() {
   const { query, back, push } = useRouter();
-  const { id } = query;
+  const { details } = query;
   const { themeStretch } = useSettingsContext();
   const { page, rowsPerPage, onChangePage, onChangeRowsPerPage } = useTable();
+
+  // API States
+  const [loading, setLoading] = useState(true);
+  const [linkData, setLinkData] = useState<any>(null);
+  const [attempts, setAttempts] = useState<any[]>([]);
 
   // Filter States
   const [filterSearch, setFilterSearch] = useState('');
@@ -120,57 +85,71 @@ export default function PaymentLinkDetailsPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  const linkInfo = {
-    name: 'Standard Consultation',
-    totalRevenue: 600.0,
-    currency: 'USD',
-    visits: 145,
-  };
+  // 1. Fetch Dynamic Data
+  const getLinkDetails = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`/paymentlinks/details/${details}`);
+      if (response.data.status === 'success') {
+        setLinkData(response.data.data);
+        setAttempts(response.data.data.attempts || []);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }, [details]);
 
-  // 1. Multi-Layer Data Filtering Logic
+  useEffect(() => {
+    if (details) {
+      getLinkDetails();
+    }
+  }, [details, getLinkDetails]);
+
+  // 2. Multi-Layer Data Filtering Logic
   const dataFiltered = useMemo(() => {
-    return MOCK_SALES.filter((item) => {
+    return attempts.filter((item) => {
       const matchSearch =
-        item.name.toLowerCase().includes(filterSearch.toLowerCase()) ||
-        item.email.toLowerCase().includes(filterSearch.toLowerCase()) ||
-        item.reference.toLowerCase().includes(filterSearch.toLowerCase());
+        item.reference.toLowerCase().includes(filterSearch.toLowerCase()) ||
+        item.description?.toLowerCase().includes(filterSearch.toLowerCase());
 
       const matchStatus = filterStatus === 'all' || item.status === filterStatus;
 
       let matchDate = true;
-      if (startDate) matchDate = matchDate && new Date(item.date) >= new Date(startDate);
-      if (endDate) matchDate = matchDate && new Date(item.date) <= new Date(endDate);
+      if (startDate) matchDate = matchDate && new Date(item.created_at) >= new Date(startDate);
+      if (endDate) matchDate = matchDate && new Date(item.created_at) <= new Date(endDate);
 
       return matchSearch && matchStatus && matchDate;
     });
-  }, [filterSearch, filterStatus, startDate, endDate]);
+  }, [attempts, filterSearch, filterStatus, startDate, endDate]);
 
-  const currentRevenue = dataFiltered
-    .filter((i) => i.status === 'success')
-    .reduce((acc, curr) => acc + curr.amount, 0);
-
-  // 2. Functional Export Logic
+  // 3. Functional Export Logic
   const handleExportToExcel = () => {
     const exportData = dataFiltered.map((item) => ({
-      Customer: item.name,
-      Email: item.email,
+      Reference: item.reference,
+      Description: item.description,
       Amount: item.amount,
+      Fee: item.fee,
+      Total_Payable: item.amount_payable,
       Currency: item.currency,
       Status: item.status.toUpperCase(),
-      Date: fDateTime(item.date),
-      Reference: item.reference,
+      Mode: item.mode.toUpperCase(),
+      Date: fDateTime(item.created_at),
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Filtered_Sales');
-    XLSX.writeFile(wb, `Sales_${id}_Export.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, 'Payment_Attempts');
+    XLSX.writeFile(wb, `Attempts_${details}_Export.xlsx`);
   };
+
+  if (loading && !linkData) return <LinearProgress />;
 
   return (
     <>
       <Head>
-        <title> Sales Analysis: {linkInfo.name} | PayLens</title>
+        <title> Analytics: {linkData?.link?.title} | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>
@@ -185,14 +164,14 @@ export default function PaymentLinkDetailsPage() {
           >
             <Link
               component="button"
-              onClick={() => push('/payment-links')}
+              onClick={() => push('/dashboard/payment-links')}
               underline="hover"
               color="inherit"
             >
-              Links
+              Payment Links
             </Link>
-            <Typography color="text.primary">{linkInfo.name}</Typography>
-            <Typography color="text.disabled">Analytics</Typography>
+            <Typography color="text.primary">{linkData?.link?.title}</Typography>
+            <Typography color="text.disabled">Attempts</Typography>
           </Breadcrumbs>
         </Stack>
 
@@ -204,9 +183,10 @@ export default function PaymentLinkDetailsPage() {
           spacing={2}
         >
           <Box>
-            <Typography variant="h3">{linkInfo.name}</Typography>
+            <Typography variant="h3">{linkData?.link?.title}</Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Monitoring performance for Link ID: <strong>{id}</strong>
+              Reference ID: <strong>{linkData?.link?.link_id}</strong> • Created{' '}
+              {fDateTime(linkData?.link?.created_at)}
             </Typography>
           </Box>
           <Button
@@ -214,45 +194,44 @@ export default function PaymentLinkDetailsPage() {
             startIcon={<Iconify icon="solar:file-download-bold-duotone" />}
             onClick={handleExportToExcel}
           >
-            Export Filtered Sales
+            Export CSV
           </Button>
         </Stack>
 
         <Grid container spacing={3} sx={{ mb: 5 }}>
           <Grid item xs={12} md={4}>
             <StatWidget
-              title="Total Link Revenue"
-              amount={fCurrency(currentRevenue, linkInfo.currency)}
+              title="Total Revenue"
+              amount={fCurrency(linkData?.stats?.total_revenue, linkData?.link?.currency)}
               variant="primary"
-              icon={<Iconify icon="solar:wallet-money-bold-duotone" width={32} />}
+              icon={<Iconify icon="solar:card-send-bold-duotone" width={32} />}
             />
           </Grid>
           <Grid item xs={12} md={4}>
-            <StatWidget
-              title="Successful Sales"
-              amount={dataFiltered.filter((i) => i.status === 'success').length}
-              variant="info"
-              icon={<Iconify icon="solar:users-group-rounded-bold-duotone" width={32} />}
+            <CountWidget
+              title="Successful Payment"
+              amount={`${linkData?.stats?.success_attempts}`}
+              variant="primary"
+              icon={<Iconify icon="solar:clock-circle-bold-duotone" />}
             />
           </Grid>
           <Grid item xs={12} md={4}>
-            <StatWidget
-              title="Filtered View Transactions"
-              amount={dataFiltered.length}
-              variant="success"
-              icon={<Iconify icon="solar:checklist-bold-duotone" width={32} />}
+            <CountWidget
+              title="Pending Payment"
+              amount={linkData?.stats?.pending_attempts}
+              variant="primary"
+              icon={<Iconify icon="solar:clock-circle-bold-duotone" />}
             />
           </Grid>
         </Grid>
 
         <Card>
-          {/* ADVANCED FILTER TOOLBAR */}
           <Stack spacing={2} direction={{ xs: 'column', md: 'row' }} sx={{ py: 2.5, px: 3 }}>
             <TextField
               fullWidth
               value={filterSearch}
               onChange={(e) => setFilterSearch(e.target.value)}
-              placeholder="Search customer, email or ref..."
+              placeholder="Search reference or description..."
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -321,22 +300,29 @@ export default function PaymentLinkDetailsPage() {
                               }}
                             >
                               <Iconify
-                                icon="solar:user-circle-bold"
-                                sx={{ color: 'text.disabled' }}
+                                icon="solar:plain-bold-duotone"
+                                sx={{ color: 'primary.main' }}
                               />
                             </Box>
                             <Box>
-                              <Typography variant="subtitle2">{row.name}</Typography>
+                              <Typography variant="subtitle2" sx={{ fontFamily: 'monospace' }}>
+                                {row.reference}
+                              </Typography>
                               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                {row.email}
+                                {row.description}
                               </Typography>
                             </Box>
                           </Stack>
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>
-                          {fCurrency(row.amount, row.currency)}
+                        <TableCell>
+                          <Typography variant="subtitle2">
+                            {fCurrency(row.amount, row.currency)}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                            Fee: {fCurrency(row.fee, row.currency)}
+                          </Typography>
                         </TableCell>
-                        <TableCell>{fDateTime(row.date)}</TableCell>
+                        <TableCell>{fDateTime(row.created_at)}</TableCell>
                         <TableCell>
                           <Box
                             sx={{
@@ -363,11 +349,26 @@ export default function PaymentLinkDetailsPage() {
                             {row.status.toUpperCase()}
                           </Box>
                         </TableCell>
-                        <TableCell
-                          align="right"
-                          sx={{ fontFamily: 'monospace', color: 'text.secondary' }}
-                        >
-                          {row.reference}
+                        <TableCell align="right">
+                          <Box
+                            sx={{
+                              px: 1,
+                              py: 0.25,
+                              borderRadius: 0.5,
+                              display: 'inline-block',
+                              border: (theme) =>
+                                `1px solid ${
+                                  row.mode === 'live'
+                                    ? theme.palette.success.main
+                                    : theme.palette.warning.main
+                                }`,
+                              color: row.mode === 'live' ? 'success.main' : 'warning.main',
+                              typography: 'overline',
+                              fontWeight: 'bold',
+                            }}
+                          >
+                            {row.mode}
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ))}

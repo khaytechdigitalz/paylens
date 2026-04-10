@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import { useSnackbar } from 'notistack';
 // @mui
 import {
@@ -75,6 +76,7 @@ export default function PaymentLinkPage() {
 
   const { page, rowsPerPage, onSort, onChangePage, onChangeRowsPerPage } =
     useTable();
+  const { push } = useRouter();
 
   const isTestMode = user?.mode === 'test';
 
@@ -192,7 +194,6 @@ export default function PaymentLinkPage() {
               variant="primary"
             />
           </Grid>
-          
         </Grid>
 
         <Card sx={{ border: isTestMode ? `1px dashed ${theme.palette.warning.main}` : 'none' }}>
@@ -261,6 +262,16 @@ export default function PaymentLinkPage() {
                       <TableCell align="right">
                         <IconButton onClick={(e) => handleCopy(e, row.link_id)} color="primary">
                           <Iconify icon="solar:copy-bold-duotone" />
+                        </IconButton>
+
+                        <IconButton
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            push(`/dashboard/paymentlink/${row.link_id}/details`);
+                          }}
+                          color="primary"
+                        >
+                          <Iconify icon="eva:eye-fill" />
                         </IconButton>
                       </TableCell>
                     </TableRow>

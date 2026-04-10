@@ -32,6 +32,7 @@ import DashboardLayout from '../../../layouts/dashboard';
 import Iconify from '../../../components/iconify';
 import Scrollbar from '../../../components/scrollbar';
 import StatWidget from '../../../components/widgets/StatWidget';
+import CountWidget from '../../../components/widgets/CountWidget';
 import { useSettingsContext } from '../../../components/settings';
 import {
   useTable,
@@ -98,12 +99,14 @@ export default function PageFive() {
   const activeStatus = (query.status as string) || '';
   const activeType = (query.type as string) || '';
   const activeStartDate = (query.start_date as string) || '';
+  const account_number = (query.account_number as string) || '';
   const activeEndDate = (query.end_date as string) || '';
 
   // 2. Local State for UI Inputs
   const [localFilters, setLocalFilters] = useState({
     name: '',
-    currency:'',
+    currency: '',
+    account_number: '',
     status: activeStatus,
     type: activeType,
     startDate: activeStartDate,
@@ -125,6 +128,7 @@ export default function PageFive() {
         params: {
           page: page + 1,
           per_page: rowsPerPage,
+          account_number,
           search: localFilters.name,
           status: activeStatus,
           currency: activeCurrency,
@@ -173,6 +177,7 @@ export default function PageFive() {
           ...query,
           currency: cleanValue(localFilters.currency),
           status: cleanValue(localFilters.status),
+          account_number: cleanValue(localFilters.account_number),
           type: cleanValue(localFilters.type),
           start_date: localFilters.startDate,
           end_date: localFilters.endDate,
@@ -213,14 +218,14 @@ export default function PageFive() {
     XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
     XLSX.writeFile(
       wb,
-      `PayLens_Export_${activeCurrency}_${new Date().toISOString().split('T')[0]}.xlsx`
+      `CredDot_Export_${activeCurrency}_${new Date().toISOString().split('T')[0]}.xlsx`
     );
   };
 
   return (
     <>
       <Head>
-        <title> Transaction History | PayLens</title>
+        <title> Transaction History | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>
@@ -279,10 +284,10 @@ export default function PageFive() {
               <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 2 }} />
             ) : (
               <StatWidget
-                title="Total Volume"
-                amount={stats?.transaction_volume || 0}
+                title="Total Fees"
+                amount={fCurrency(stats?.transaction_fee || 0, activeCurrency)}
                 variant="primary"
-                icon={<Iconify icon="eva:layers-fill" width={32} />}
+                icon={<Iconify icon="eva:pie-chart-2-fill" width={32} />}
               />
             )}
           </Grid>
@@ -290,11 +295,11 @@ export default function PageFive() {
             {loading ? (
               <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 2 }} />
             ) : (
-              <StatWidget
-                title="Total Fees"
-                amount={fCurrency(stats?.transaction_fee || 0, activeCurrency)}
+              <CountWidget
+                title="Transaction Volume"
+                amount={stats?.transaction_volume || 0}
                 variant="primary"
-                icon={<Iconify icon="eva:pie-chart-2-fill" width={32} />}
+                icon={<Iconify icon="eva:layers-fill" width={32} />}
               />
             )}
           </Grid>

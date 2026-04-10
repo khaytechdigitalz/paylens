@@ -187,7 +187,7 @@ export default function VirtualAccountPage() {
                       variant="soft"
                       color="primary"
                       sx={{ mt: 2, fontWeight: 700 }}
-                      onClick={() => router.push(`/dashboard/virtualaccounts/${acc.reference}`)}
+                      onClick={() => router.push(`/dashboard/transactions/history?account_number=${acc.reference}`)}
                     >
                       View Transactions
                     </Button>
