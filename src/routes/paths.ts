@@ -16,6 +16,7 @@ export const PATH_AUTH = {
   forgotpassword: '/forgotpassword',
   api: '/documentation/overview',
   transaction:  `/transaction/initialize`,
+  paymentlink:  `/paymentlink/initialize`,
   // transaction: (initialize: string) => `/transaction/${initialize}/initialize`,
 };
 

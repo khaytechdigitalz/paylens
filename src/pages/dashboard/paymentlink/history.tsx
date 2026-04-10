@@ -123,14 +123,15 @@ export default function PaymentLinkPage() {
 
   const handleCopy = (e: React.MouseEvent, linkId: string) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(`https://paylens.me/${linkId}`);
+    const fullLink = `${window.location.origin}/paymentlink/initialize?ref=${linkId}`;
+    navigator.clipboard.writeText(fullLink);
     enqueueSnackbar('Link copied to clipboard');
   };
 
   return (
     <>
       <Head>
-        <title> Payment Links | PayLens</title>
+        <title> Payment Links | CredDot </title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>
@@ -175,7 +176,7 @@ export default function PaymentLinkPage() {
         </Stack>
 
         <Grid container spacing={3} sx={{ mb: 5 }}>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={6}>
             <StatWidget
               title="Link Revenue"
               icon={<Iconify icon="eva:trending-up-fill" width={32} />}
@@ -183,7 +184,7 @@ export default function PaymentLinkPage() {
               variant="primary"
             />
           </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={6}>
             <StatWidget
               title="Total Sales"
               icon={<Iconify icon="eva:shopping-cart-fill" width={32} />}
@@ -191,22 +192,7 @@ export default function PaymentLinkPage() {
               variant="primary"
             />
           </Grid>
-          <Grid item xs={12} md={3}>
-            <StatWidget
-              title="Active Links"
-              icon={<Iconify icon="eva:link-2-fill" width={32} />}
-              amount={loading ? <Skeleton /> : summary?.active_links || 0}
-              variant="primary"
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <StatWidget
-              title="Inactive"
-              icon={<Iconify icon="eva:link-2-outline" width={32} />}
-              amount={loading ? <Skeleton /> : summary?.inactive_links || 0}
-              variant="primary"
-            />
-          </Grid>
+          
         </Grid>
 
         <Card sx={{ border: isTestMode ? `1px dashed ${theme.palette.warning.main}` : 'none' }}>
@@ -249,7 +235,7 @@ export default function PaymentLinkPage() {
                       <TableCell>
                         <Typography variant="subtitle2">{row.title}</Typography>
                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          paylens.me/{row.link_id}
+                          {row.link_id}
                         </Typography>
                       </TableCell>
                       <TableCell sx={{ textTransform: 'capitalize' }}>{row.type}</TableCell>

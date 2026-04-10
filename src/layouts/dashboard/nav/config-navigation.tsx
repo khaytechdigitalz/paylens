@@ -138,6 +138,17 @@ export default function useNavConfig() {
         ...(isBusiness
           ? [{ title: 'Settlement', path: PATH_DASHBOARD.settlement, icon: ICONS.invoice }]
           : []),
+
+        // Payment Link: Only show for Business
+        ...(isBusiness
+          ? [
+              {
+                title: 'Payment Link',
+                path: PATH_DASHBOARD.paymentlink.history,
+                icon: ICONS.ecommerce,
+              },
+            ]
+          : []),
       ],
     },
 
