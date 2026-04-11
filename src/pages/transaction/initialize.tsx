@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable react/no-unescaped-entities */
 /* eslint-disable consistent-return */
 /* eslint-disable no-unsafe-optional-chaining */
+/* eslint-disable react/no-unescaped-entities */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react/no-unknown-property */
 import Head from 'next/head';
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -18,28 +18,28 @@ import {
   CircularProgress,
   Fade,
   Tooltip,
+  Alert,
+  alpha,
+  Chip,
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
-// utils
-import axios from '../../utils/axios';
 // components
 import Logo from '../../components/logo';
 import Iconify from '../../components/iconify';
-import { useSettingsContext } from '../../components/settings';
+import axios from '../../utils/axios';
 
 // ----------------------------------------------------------------------
 
 export default function CredDotCheckoutPage() {
   const { query } = useRouter();
-  const { themeStretch } = useSettingsContext();
+  const theme = useTheme();
 
   const [currentTab, setCurrentTab] = useState('bank_transfer');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedAmount, setCopiedAmount] = useState(false);
 
-  // Timer State (in seconds)
-  const [secondsLeft, setSecondsLeft] = useState(1200); // 20 minutes
-
+  const [secondsLeft, setSecondsLeft] = useState(1200);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [transactionData, setTransactionData] = useState<any>(null);
@@ -53,7 +53,6 @@ export default function CredDotCheckoutPage() {
     []
   );
 
-  // Countdown Logic
   useEffect(() => {
     if (loading) return;
     const timer = setInterval(() => {
@@ -62,7 +61,6 @@ export default function CredDotCheckoutPage() {
     return () => clearInterval(timer);
   }, [loading]);
 
-  // Format seconds to MM:SS
   const formatTime = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
@@ -82,7 +80,7 @@ export default function CredDotCheckoutPage() {
         setError(response.data.message || 'Transaction not found.');
       }
     } catch (err) {
-      setError('Connection error. Please refresh.');
+      setError('Connection error.');
     } finally {
       setLoading(false);
     }
@@ -94,19 +92,24 @@ export default function CredDotCheckoutPage() {
     }
   }, [query.reference, query.initialize, getTransactionDetails]);
 
-  const handleCopy = (text: string) => {
+  const handleCopy = (text: string, type: 'account' | 'amount') => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  // Logic to handle cancel and redirect
-  const handleCancel = () => {
-    const callbackUrl = transactionData?.payment_account?.callback;
-    if (callbackUrl) {
-      window.location.href = callbackUrl;
+    if (type === 'account') {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      setCopiedAmount(true);
+      setTimeout(() => setCopiedAmount(false), 2000);
     }
   };
+
+  const handleCancel = () => {
+    const callbackUrl = transactionData?.payment_account?.callback;
+    if (callbackUrl) window.location.href = callbackUrl;
+  };
+
+  const processingFee =
+    transactionData?.transaction?.amount_payable - transactionData?.transaction?.amount || 0;
 
   if (loading)
     return (
@@ -125,66 +128,162 @@ export default function CredDotCheckoutPage() {
 
       <Box
         sx={{
-          minHeight: '100vh',
+          height: '100vh',
           display: 'flex',
           flexDirection: { xs: 'column', md: 'row' },
           bgcolor: '#FFFFFF',
+          overflow: 'hidden',
         }}
       >
-        {/* LEFT SIDE: ORDER SUMMARY */}
+        {/* SIDEBAR/HEADER SECTION */}
         <Box
           sx={{
             width: { xs: 1, md: '40%' },
-            bgcolor: '#F8F9F9',
-            p: { xs: 4, md: 8 },
+            bgcolor: { xs: '#FFFFFF', md: '#F8F9F9' },
+            p: { xs: 2.5, md: 6 },
             display: 'flex',
             flexDirection: 'column',
+            justifyContent: { xs: 'center', md: 'flex-start' },
             borderRight: { md: '1px solid #E6E8EB' },
+            borderBottom: { xs: '1px solid #E6E8EB', md: 'none' },
+            boxShadow: { xs: '0 4px 12px rgba(0,0,0,0.03)', md: 'none' },
+            zIndex: 10,
           }}
         >
           <Box sx={{ maxWidth: 400, mx: 'auto', width: 1 }}>
-            {/* REMOVED BACK BUTTON, ADDED CANCEL BUTTON */}
-            <Button
-              onClick={handleCancel}
-              startIcon={<Iconify icon="solar:close-circle-outline" width={16} />}
-              sx={{
-                color: 'error.main',
-                p: 0,
-                mb: 6,
-                fontSize: 13,
-                fontWeight: 700,
-                '&:hover': { bgcolor: 'transparent', color: 'error.dark' },
-              }}
+            {/* Top Navigation & Logo */}
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              sx={{ mb: { xs: 1, md: 8 } }}
             >
-              Cancel Payment
-            </Button>
+              <Button
+                onClick={handleCancel}
+                startIcon={<Iconify icon="solar:close-circle-outline" width={16} />}
+                sx={{ color: 'error.main', p: 0, fontSize: 12, fontWeight: 700 }}
+              >
+                Cancel
+              </Button>
+              <Logo sx={{ height: { xs: 20, md: 24 } }} />
+            </Stack>
 
-            <Stack spacing={3}>
+            <Stack
+              direction={{ xs: 'row', md: 'column' }}
+              spacing={{ xs: 2, md: 3 }}
+              alignItems={{ xs: 'center', md: 'flex-start' }}
+            >
               <Box
                 component="img"
                 src={transactionData?.merchant?.logo}
-                sx={{ width: 52, height: 52, borderRadius: 1.5, mb: 1 }}
+                sx={{
+                  width: { xs: 44, md: 64 },
+                  height: { xs: 44, md: 64 },
+                  borderRadius: 1.5,
+                  border: '1px solid #E6E8EB',
+                  p: 0.5,
+                  bgcolor: 'white',
+                }}
               />
-              <Box>
+              <Box sx={{ flexGrow: 1 }}>
                 <Typography
-                  variant="body2"
-                  sx={{ color: 'text.secondary', fontWeight: 600, mb: 0.5 }}
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    fontWeight: 800,
+                    letterSpacing: 1.2,
+                    display: { xs: 'none', md: 'block' },
+                  }}
                 >
-                  Pay {transactionData?.merchant?.business_name}
+                  PAYING {transactionData?.merchant?.business_name?.toUpperCase()}
                 </Typography>
                 <Typography
                   variant="h2"
-                  sx={{ fontWeight: 800, letterSpacing: -1.5, color: '#1A1F36' }}
+                  sx={{
+                    fontWeight: 900,
+                    letterSpacing: -1.5,
+                    color: '#1A1F36',
+                    fontSize: { xs: '1.75rem', md: '2.5rem' },
+                  }}
                 >
                   {transactionData?.transaction?.currency}{' '}
                   {transactionData?.transaction?.amount_payable?.toLocaleString()}
                 </Typography>
-              </Box>
 
+                {/* Mobile-only compact amount breakdown */}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: { xs: 'block', md: 'none' },
+                    color: 'text.disabled',
+                    fontWeight: 700,
+                  }}
+                >
+                  Amount: {transactionData?.transaction?.amount?.toLocaleString()} • Fee:{' '}
+                  {processingFee?.toLocaleString()}
+                </Typography>
+              </Box>
+            </Stack>
+
+            {/* NEW MOBILE TRUST AND ACTION CENTER (Addresses circled portion) */}
+            <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 2.5 }}>
+              <Stack spacing={1.5}>
+                {/* Interactive "Tap to Copy Amount" Badge */}
+                <Chip
+                  label={copiedAmount ? 'Amount Copied!' : 'Tap to Copy Amount'}
+                  onClick={() => handleCopy(transactionData?.transaction?.amount_payable, 'amount')}
+                  icon={
+                    <Iconify
+                      icon={copiedAmount ? 'solar:check-circle-bold' : 'solar:copy-outline'}
+                    />
+                  }
+                  sx={{
+                    borderRadius: 1,
+                    fontWeight: 700,
+                    fontSize: 11,
+                    letterSpacing: 0.5,
+                    color: copiedAmount ? 'success.darker' : 'primary.darker',
+                    bgcolor: copiedAmount
+                      ? 'success.lighter'
+                      : alpha(theme.palette.primary.main, 0.08),
+                    border: `1px solid ${
+                      copiedAmount ? 'success.light' : alpha(theme.palette.primary.main, 0.2)
+                    }`,
+                    '&:hover': {
+                      bgcolor: copiedAmount
+                        ? 'success.light'
+                        : alpha(theme.palette.primary.main, 0.15),
+                    },
+                  }}
+                />
+
+                {/* Warning Alert: Use heavy typography for urgency */}
+                <Alert
+                  severity="warning"
+                  icon={<Iconify icon="solar:shield-warning-bold" />}
+                  sx={{
+                    borderRadius: 1,
+                    bgcolor: alpha(theme.palette.warning.main, 0.04),
+                    border: `1px solid ${alpha(theme.palette.warning.main, 0.15)}`,
+                    '& .MuiAlert-message': {
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      color: 'warning.darker',
+                    },
+                  }}
+                >
+                  Make a single payment from your bank to this account before it expires.
+                </Alert>
+              </Stack>
+            </Box>
+
+            {/* Desktop-only Detailed Breakdown */}
+            <Box sx={{ display: { xs: 'none', md: 'block' }, mt: 6 }}>
+              <Divider sx={{ mb: 3, borderStyle: 'dashed' }} />
               <Stack spacing={2}>
                 <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    {transactionData?.transaction?.description || 'Service Payment'}
+                  <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                    Subtotal
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {transactionData?.transaction?.currency}{' '}
@@ -192,56 +291,65 @@ export default function CredDotCheckoutPage() {
                   </Typography>
                 </Stack>
                 <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
                     Processing Fee
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {transactionData?.transaction?.currency}{' '}
-                    {(
-                      transactionData?.transaction?.amount_payable -
-                      transactionData?.transaction?.amount
-                    ).toLocaleString()}
+                    {transactionData?.transaction?.currency} {processingFee?.toLocaleString()}
                   </Typography>
                 </Stack>
-                <Divider />
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                    Total due
+                <Divider sx={{ my: 1 }} />
+                <Stack direction="row" justifyContent="space-between" alignItems="baseline">
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                    Total Due
                   </Typography>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  <Typography variant="h4" sx={{ fontWeight: 900, color: 'primary.main' }}>
                     {transactionData?.transaction?.currency}{' '}
                     {transactionData?.transaction?.amount_payable?.toLocaleString()}
                   </Typography>
                 </Stack>
               </Stack>
-            </Stack>
 
-            <Box sx={{ mt: 'auto', pt: 10 }}>
-              <Logo sx={{ mx: 'auto', my: 2, opacity: 0.6 }} />
+              <Box
+                sx={{
+                  mt: 4,
+                  p: 2,
+                  borderRadius: 1,
+                  bgcolor: alpha(theme.palette.primary.main, 0.03),
+                  border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 0.5 }}
+                >
+                  MEMO
+                </Typography>
+                <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.primary' }}>
+                  {transactionData?.transaction?.description || 'Service payment'}
+                </Typography>
+              </Box>
             </Box>
           </Box>
         </Box>
 
-        {/* RIGHT SIDE: PAYMENT METHODS */}
+        {/* PAYMENT INTERACTION AREA */}
         <Box
           sx={{
             flexGrow: 1,
-            p: { xs: 4, md: 8 },
+            p: { xs: 2.5, md: 8 }, // Compact padding on mobile
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
+            justifyContent: { xs: 'flex-start', md: 'center' }, // Fixed height view on mobile
+            overflowY: 'auto',
           }}
         >
           <Box sx={{ width: 1, maxWidth: 460 }}>
-            <Typography variant="h5" sx={{ mb: 4, fontWeight: 700, color: '#1A1F36' }}>
-              Payment Method
-            </Typography>
-
-            {/* Tabs */}
             <Stack
               direction="row"
               spacing={1}
-              sx={{ mb: 5, p: 0.5, bgcolor: '#F6F8FA', borderRadius: 1.5 }}
+              sx={{ mb: { xs: 2.5, md: 4 }, p: 0.5, bgcolor: '#F6F8FA', borderRadius: 1.5 }}
             >
               {TABS.map((tab) => (
                 <Box
@@ -253,11 +361,10 @@ export default function CredDotCheckoutPage() {
                     cursor: 'pointer',
                     borderRadius: 1,
                     textAlign: 'center',
-                    transition: 'all 0.2s',
                     bgcolor: currentTab === tab.value ? 'white' : 'transparent',
-                    boxShadow: currentTab === tab.value ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                    boxShadow: currentTab === tab.value ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
                     color: currentTab === tab.value ? '#1A1F36' : 'text.disabled',
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: 700,
                     textTransform: 'uppercase',
                   }}
@@ -269,11 +376,41 @@ export default function CredDotCheckoutPage() {
 
             {currentTab === 'bank_transfer' ? (
               <Fade in>
-                <Stack spacing={4}>
-                  <Box
-                    sx={{ p: 3, borderRadius: 2, border: '1px solid #E6E8EB', bgcolor: '#FFFFFF' }}
+                <Stack spacing={{ xs: 2.5, md: 3 }}>
+                  {/* Desktop-only Instruction Alert (Hidden on Mobile) */}
+                  <Alert
+                    severity="info"
+                    icon={<Iconify icon="solar:info-circle-bold" />}
+                    sx={{
+                      borderRadius: 1.5,
+                      bgcolor: alpha(theme.palette.info.main, 0.05),
+                      border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+                      '& .MuiAlert-message': {
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: 'info.darker',
+                      },
+                      display: { xs: 'none', md: 'flex' },
+                    }}
                   >
-                    <Stack spacing={3}>
+                    Transfer exactly{' '}
+                    <strong>
+                      {transactionData?.transaction?.currency}{' '}
+                      {transactionData?.transaction?.amount_payable?.toLocaleString()}
+                    </strong>{' '}
+                    to the account below.
+                  </Alert>
+
+                  <Box
+                    sx={{
+                      p: { xs: 2.5, md: 3 },
+                      borderRadius: 2.5,
+                      border: '1px solid #E6E8EB',
+                      bgcolor: '#FFFFFF',
+                      boxShadow: '0 20px 40px -12px rgba(0,0,0,0.05)',
+                    }}
+                  >
+                    <Stack spacing={2.5}>
                       <Box>
                         <Typography
                           variant="caption"
@@ -284,7 +421,7 @@ export default function CredDotCheckoutPage() {
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                           <Typography
                             variant="h3"
-                            sx={{ fontWeight: 800, color: '#1A1F36', letterSpacing: 1 }}
+                            sx={{ fontWeight: 800, color: '#1A1F36', letterSpacing: 1.5 }}
                           >
                             {transactionData?.payment_account?.account_number}
                           </Typography>
@@ -292,7 +429,10 @@ export default function CredDotCheckoutPage() {
                             <IconButton
                               size="small"
                               onClick={() =>
-                                handleCopy(transactionData?.payment_account?.account_number)
+                                handleCopy(
+                                  transactionData?.payment_account?.account_number,
+                                  'account'
+                                )
                               }
                             >
                               <Iconify
@@ -304,7 +444,7 @@ export default function CredDotCheckoutPage() {
                         </Stack>
                       </Box>
                       <Divider />
-                      <Stack direction="row" spacing={2}>
+                      <Stack direction="row" spacing={1}>
                         <Box sx={{ flex: 1 }}>
                           <Typography
                             variant="caption"
@@ -312,7 +452,7 @@ export default function CredDotCheckoutPage() {
                           >
                             BANK
                           </Typography>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 800 }}>
                             {transactionData?.payment_account?.bank_name}
                           </Typography>
                         </Box>
@@ -323,7 +463,7 @@ export default function CredDotCheckoutPage() {
                           >
                             BENEFICIARY
                           </Typography>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 800 }}>
                             {transactionData?.payment_account?.account_name}
                           </Typography>
                         </Box>
@@ -340,9 +480,9 @@ export default function CredDotCheckoutPage() {
                     sx={{
                       bgcolor: '#1A1F36',
                       height: 54,
-                      borderRadius: 1,
+                      borderRadius: 1.5,
+                      fontWeight: 700,
                       fontSize: 16,
-                      fontWeight: 600,
                       '&:hover': { bgcolor: '#000' },
                     }}
                   >
@@ -366,62 +506,52 @@ export default function CredDotCheckoutPage() {
                 </Stack>
               </Fade>
             ) : (
-              <Stack
-                alignItems="center"
-                justifyContent="center"
-                sx={{ py: 10, textAlign: 'center' }}
-              >
-                <Iconify
-                  icon="solar:settings-minimalistic-bold-duotone"
-                  width={48}
-                  sx={{ color: 'text.disabled', mb: 2, animation: 'spin 4s linear infinite' }}
-                />
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'text.secondary' }}>
-                  Coming Soon
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-                  This payment method is currently under maintenance.
-                </Typography>
-              </Stack>
+              <Fade in>
+                <Stack
+                  alignItems="center"
+                  justifyContent="center"
+                  sx={{ py: 6, textAlign: 'center' }}
+                >
+                  <Iconify
+                    icon="solar:settings-minimalistic-bold-duotone"
+                    width={56}
+                    sx={{ color: 'text.disabled', mb: 3, animation: 'spin 4s linear infinite' }}
+                  />
+                  <Alert
+                    severity="warning"
+                    sx={{ width: 1, borderRadius: 1.5, border: '1px solid' }}
+                  >
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Coming Soon
+                    </Typography>
+                    <Typography variant="caption">
+                      This payment method is currently under maintenance.
+                    </Typography>
+                  </Alert>
+                </Stack>
+              </Fade>
             )}
 
-            {/* Compliance Footer */}
-            <Stack sx={{ mt: 10, pt: 6, borderTop: '1px solid #F6F8FA' }}>
-              <Stack
-                direction="row"
-                spacing={4}
-                justifyContent="center"
-                alignItems="center"
-                sx={{ mb: 2 }}
-              >
-                <Box
-                  component="img"
-                  src="https://www.staffordnet.com/img/logos/logo-pci-dss-500.png"
-                  sx={{ height: 28, opacity: 0.8 }}
-                />
-                <Box
-                  component="img"
-                  src="https://upload.wikimedia.org/wikipedia/commons/e/e0/Central_Bank_of_Nigeria_logo.png"
-                  sx={{ height: 22, filter: 'grayscale(1)', opacity: 0.5 }}
-                />
-              </Stack>
+            <Stack
+              sx={{
+                mt: { xs: 4, md: 6 },
+                pt: 3,
+                borderTop: '1px solid #F6F8FA',
+                alignItems: 'center',
+              }}
+            >
               <Typography
                 variant="caption"
-                sx={{
-                  textAlign: 'center',
-                  color: 'text.disabled',
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: 0.5,
-                }}
+                sx={{ color: 'text.disabled', fontSize: 10, fontWeight: 700, letterSpacing: 0.8 }}
               >
-                SECURED BY CREDDOT • PCI-DSS COMPLIANT • LICENSED BY CBN
+                SECURED BY CREDDOT • PCI-DSS COMPLIANT
               </Typography>
             </Stack>
           </Box>
         </Box>
       </Box>
 
+      {/* Global CSS for Animations */}
       <style jsx global>{`
         @keyframes spin {
           from {
