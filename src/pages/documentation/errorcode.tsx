@@ -48,7 +48,7 @@ const ERROR_LIST = [
     type: 'auth_error',
     message: 'The Secret Key provided is incorrect or inactive.',
     action:
-      'Verify your Secret Key in the PayLens Dashboard. Ensure you aren’t using Test Keys in Production.',
+      'Verify your Secret Key in the CredDot Dashboard. Ensure you aren’t using Test Keys in Production.',
   },
   {
     code: 'api_key_missing',
@@ -115,7 +115,7 @@ export default function ApiErrorReferencePage() {
   return (
     <>
       <Head>
-        <title>Error Reference | PayLens API Documentation</title>
+        <title>Error Reference | CredDot API Documentation</title>
       </Head>
 
       <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>

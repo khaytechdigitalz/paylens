@@ -58,7 +58,6 @@ import TransactionTableToolbar from './TransactionTableToolbar';
 
 const TABLE_HEAD = [
   { id: 'title', label: 'Link Name', align: 'left' },
-  { id: 'type', label: 'Type', align: 'left' },
   { id: 'is_active', label: 'Status', align: 'left' },
   { id: 'successful_payments_count', label: 'Sales', align: 'center' },
   { id: 'amount', label: 'Price', align: 'left' },
@@ -239,7 +238,6 @@ export default function PaymentLinkPage() {
                           {row.link_id}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ textTransform: 'capitalize' }}>{row.type}</TableCell>
                       <TableCell>
                         <Iconify
                           icon={
@@ -311,9 +309,8 @@ function CreateLinkModal({ open, onClose, currentCurrency, isTest, onRefresh }: 
     description: '',
     amount: '',
     currency: currentCurrency,
-    type: 'professional',
     usage_limit: '',
-    payment_action: 'message',
+    payment_action: 'noredirect',
     redirect_url: '',
   });
 
@@ -340,7 +337,6 @@ function CreateLinkModal({ open, onClose, currentCurrency, isTest, onRefresh }: 
         description: '',
         amount: '',
         currency: currentCurrency,
-        type: 'professional',
         usage_limit: '',
         payment_action: 'message',
         redirect_url: '',
@@ -399,17 +395,7 @@ function CreateLinkModal({ open, onClose, currentCurrency, isTest, onRefresh }: 
                 startAdornment: <InputAdornment position="start">{currentCurrency}</InputAdornment>,
               }}
             />
-            <FormControl fullWidth>
-              <InputLabel>Link Type</InputLabel>
-              <Select
-                value={form.type}
-                label="Link Type"
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
-              >
-                <MenuItem value="basic">Basic</MenuItem>
-                <MenuItem value="professional">Professional</MenuItem>
-              </Select>
-            </FormControl>
+            
           </Stack>
 
           <TextField
@@ -427,7 +413,7 @@ function CreateLinkModal({ open, onClose, currentCurrency, isTest, onRefresh }: 
               label="Payment Action"
               onChange={(e) => setForm({ ...form, payment_action: e.target.value })}
             >
-              <MenuItem value="message">Show Success Message</MenuItem>
+              <MenuItem value="noredirect">No Redirection</MenuItem>
               <MenuItem value="redirect">Redirect to URL</MenuItem>
             </Select>
           </FormControl>

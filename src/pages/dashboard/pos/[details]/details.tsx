@@ -222,7 +222,7 @@ export default function TerminalDetailsPage() {
 
                 <Stack spacing={2} sx={{ p: 3 }}>
                   <InfoItem label="Status" value={terminal?.status || '---'} isStatus />
-                  <InfoItem label="OS" value="Android 11 (PayLens Core)" />
+                  <InfoItem label="OS" value="Android 11 (CredDot Core)" />
                   <InfoItem label="Network" value={terminal?.brand || '---'} />
                   <InfoItem label="Battery" value="98% (Healthy)" />
                 </Stack>

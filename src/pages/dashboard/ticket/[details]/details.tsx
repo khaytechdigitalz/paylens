@@ -136,7 +136,7 @@ export default function TicketDetailsPage() {
   return (
     <>
       <Head>
-        <title>Ticket Case: {ticketId} | PayLens</title>
+        <title>Ticket Case: {ticketId} | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>
@@ -183,9 +183,7 @@ export default function TicketDetailsPage() {
                 position: 'relative',
               }}
             >
-              <Scrollbar
-                sx={{ p: 3, flexGrow: 1, bgcolor: alpha(theme.palette.grey[500], 0.04) }}
-              >
+              <Scrollbar sx={{ p: 3, flexGrow: 1, bgcolor: alpha(theme.palette.grey[500], 0.04) }}>
                 <Stack spacing={2.5}>
                   {messages.map((msg, index) => {
                     const isMe = msg.is_admin_reply === 0;

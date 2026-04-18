@@ -43,7 +43,7 @@ const ENDPOINTS = [
     js: (
       <>
         <span style={{ color: '#7F848E' }}>// Fetch banks using Axios</span>{'\n'}
-        <span style={{ color: '#C678DD' }}>const</span> response = <span style={{ color: '#C678DD' }}>await</span> axios.<span style={{ color: '#61AFEF' }}>get</span>(<span style={{ color: '#98C379' }}>'https://api.paylens.com/v1/banks'</span>, {'{'}{'\n'}
+        <span style={{ color: '#C678DD' }}>const</span> response = <span style={{ color: '#C678DD' }}>await</span> axios.<span style={{ color: '#61AFEF' }}>get</span>(<span style={{ color: '#98C379' }}>'https://api.creddot.com/v1/banks'</span>, {'{'}{'\n'}
         {'  '}headers: {'{'} Authorization: <span style={{ color: '#98C379' }}>`Bearer {'${'}SECRET_KEY{'}'}`</span> {'}'}{'\n'}
         {'}'});
       </>
@@ -52,7 +52,7 @@ const ENDPOINTS = [
       <>
         <span style={{ color: '#7F848E' }}>// Using GuzzleHttp</span>{'\n'}
         <span style={{ color: '#C678DD' }}>$client</span> = <span style={{ color: '#C678DD' }}>new</span> \<span style={{ color: '#E5C07B' }}>GuzzleHttp\Client</span>();{'\n'}
-        <span style={{ color: '#C678DD' }}>$response</span> = <span style={{ color: '#C678DD' }}>$client</span>-<span style={{ color: '#61AFEF' }}>request</span>(<span style={{ color: '#98C379' }}>'GET'</span>, <span style={{ color: '#98C379' }}>'https://api.paylens.com/v1/banks'</span>, [{'\n'}
+        <span style={{ color: '#C678DD' }}>$response</span> = <span style={{ color: '#C678DD' }}>$client</span>-<span style={{ color: '#61AFEF' }}>request</span>(<span style={{ color: '#98C379' }}>'GET'</span>, <span style={{ color: '#98C379' }}>'https://api.creddot.com/v1/banks'</span>, [{'\n'}
         {'  '}<span style={{ color: '#98C379' }}>'headers'</span> = [{'\n'}
         {'    '}<span style={{ color: '#98C379' }}>'Authorization'</span> = <span style={{ color: '#98C379' }}>'Bearer '</span> . <span style={{ color: '#C678DD' }}>$SECRET_KEY</span>{'\n'}
         {'  '}] {'\n'}]);
@@ -114,7 +114,7 @@ const ENDPOINTS = [
         {'  '}<span style={{ color: '#98C379' }}>"account_number"</span> =&gt; <span style={{ color: '#98C379' }}>"0123456789"</span>{'\n'}
         ];{'\n'}
         <span style={{ color: '#C678DD' }}>$ch</span> = <span style={{ color: '#61AFEF' }}>curl_init</span>();{'\n'}
-        <span style={{ color: '#61AFEF' }}>curl_setopt</span>(<span style={{ color: '#C678DD' }}>$ch</span>, <span style={{ color: '#D19A66' }}>CURLOPT_URL</span>, <span style={{ color: '#98C379' }}>"https://api.paylens.com/v1/transfer/initiate"</span>);{'\n'}
+        <span style={{ color: '#61AFEF' }}>curl_setopt</span>(<span style={{ color: '#C678DD' }}>$ch</span>, <span style={{ color: '#D19A66' }}>CURLOPT_URL</span>, <span style={{ color: '#98C379' }}>"https://api.creddot.com/v1/transfer/initiate"</span>);{'\n'}
         <span style={{ color: '#61AFEF' }}>curl_setopt</span>(<span style={{ color: '#C678DD' }}>$ch</span>, <span style={{ color: '#D19A66' }}>CURLOPT_POST</span>, <span style={{ color: '#D19A66' }}>true</span>);
       </>
     ),

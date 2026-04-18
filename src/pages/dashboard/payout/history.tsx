@@ -134,7 +134,7 @@ export default function PayoutsPage() {
   return (
     <>
       <Head>
-        <title> Payout History | PayLens</title>
+        <title> Payout History | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>

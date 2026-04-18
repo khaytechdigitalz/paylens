@@ -148,7 +148,7 @@ export default function InternetPage() {
   return (
     <>
       <Head>
-        <title>Internet Subscription | PayLens</title>
+        <title>Internet Subscription | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'lg'}>

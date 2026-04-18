@@ -121,7 +121,7 @@ export default function RequestTerminalPage() {
   return (
     <>
       <Head>
-        <title>Request POS Terminal | PayLens</title>
+        <title>Request POS Terminal | CredDot</title>
       </Head>
 
       <Container maxWidth="xl">

@@ -113,7 +113,7 @@ export default function PageOne() {
   return (
     <>
       <Head>
-        <title>Command Center | PayLens</title>
+        <title>Command Center | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>

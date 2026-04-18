@@ -169,7 +169,7 @@ export default function CableTVPage() {
   return (
     <>
       <Head>
-        <title>Cable TV Subscription | PayLens</title>
+        <title>Cable TV Subscription | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'lg'}>

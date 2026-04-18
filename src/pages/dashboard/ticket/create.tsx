@@ -99,7 +99,7 @@ export default function TicketCreatePage() {
   return (
     <>
       <Head>
-        <title>Create New Ticket | PayLens</title>
+        <title>Create New Ticket | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'lg'}>

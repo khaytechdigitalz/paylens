@@ -126,7 +126,7 @@ export default function AirtimePage() {
   return (
     <>
       <Head>
-        <title>Airtime Top-up | PayLens</title>
+        <title>Airtime Top-up | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'lg'}>

@@ -101,7 +101,7 @@ export default function SupportTicketPage() {
   return (
     <>
       <Head>
-        <title>Support Tickets | PayLens</title>
+        <title>Support Tickets | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>

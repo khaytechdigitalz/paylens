@@ -145,7 +145,7 @@ export default function ElectricityPage() {
   return (
     <>
       <Head>
-        <title>Electricity Bills | PayLens</title>
+        <title>Electricity Bills | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'lg'}>

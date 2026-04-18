@@ -129,7 +129,7 @@ export default function RefundHistoryPage() {
   return (
     <>
       <Head>
-        <title> Refund History | PayLens</title>
+        <title> Refund History | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>

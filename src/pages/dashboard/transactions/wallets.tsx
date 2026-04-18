@@ -144,13 +144,13 @@ export default function RefundHistoryPage() {
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Refunds');
-    XLSX.writeFile(wb, `PayLens_Refunds_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(wb, `CredDot_Refunds_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   return (
     <>
       <Head>
-        <title> Refund History | PayLens</title>
+        <title> Refund History | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>

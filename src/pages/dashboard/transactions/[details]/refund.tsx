@@ -91,7 +91,7 @@ export default function RefundDetailsPage() {
   return (
     <>
       <Head>
-        <title>Refund Details: {refund_ref} | PayLens</title>
+        <title>Refund Details: {refund_ref} | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>
@@ -186,9 +186,7 @@ export default function RefundDetailsPage() {
                     label="Orig. Transaction"
                     value={transaction?.reference}
                     isLink
-                    onClick={() =>
-                      push(`/dashboard/transactions/${transaction?.id}/details`)
-                    }
+                    onClick={() => push(`/dashboard/transactions/${transaction?.id}/details`)}
                   />
                   <Divider sx={{ borderStyle: 'dashed', my: 1 }} />
                   <Typography variant="overline" sx={{ color: 'text.disabled' }}>
@@ -272,7 +270,7 @@ export default function RefundDetailsPage() {
                     icon={isRejected ? 'eva:close-circle-fill' : 'eva:checkmark-circle-fill'}
                   />
                 </Stack>
-              </Card> 
+              </Card>
             </Stack>
           </Grid>
         </Grid>

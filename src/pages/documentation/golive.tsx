@@ -28,7 +28,7 @@ const TECHNICAL_TASKS = [
   },
   {
     title: 'Update Base URL',
-    desc: 'Ensure your environment variables are pointing to https://api.paylens.com/v1.',
+    desc: 'Ensure your environment variables are pointing to https://api.creddot.com/v1.',
   },
   {
     title: 'Set Production Webhooks',
@@ -43,7 +43,7 @@ const TECHNICAL_TASKS = [
 const COMPLIANCE_TASKS = [
   {
     title: 'KYC Verification',
-    desc: 'Ensure your business profile is fully verified in the PayLens dashboard to avoid settlement delays.',
+    desc: 'Ensure your business profile is fully verified in the CredDot dashboard to avoid settlement delays.',
   },
   {
     title: 'SSL/TLS Certificate',
@@ -61,7 +61,7 @@ export default function ApiGoLivePage() {
   return (
     <>
       <Head>
-        <title>Go-Live Checklist | PayLens API Documentation</title>
+        <title>Go-Live Checklist | CredDot API Documentation</title>
       </Head>
 
       <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>

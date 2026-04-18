@@ -150,7 +150,7 @@ export default function SettlementPage() {
   return (
     <>
       <Head>
-        <title> Settlement History | PayLens</title>
+        <title> Settlement History | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>

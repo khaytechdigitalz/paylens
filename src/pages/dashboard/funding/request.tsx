@@ -40,6 +40,7 @@ const BANK_PROVIDERS = [
     subtitle: 'Reliable Transfers',
     icon: 'solar:shield-check-bold-duotone',
   },
+  /*
   {
     id: 'providus',
     title: 'Providus Bank',
@@ -58,6 +59,7 @@ const BANK_PROVIDERS = [
     subtitle: 'Digital First',
     icon: 'solar:shield-check-bold-duotone',
   },
+  */
 ];
 
 RequestVirtualAccountPage.getLayout = (page: React.ReactElement) => (

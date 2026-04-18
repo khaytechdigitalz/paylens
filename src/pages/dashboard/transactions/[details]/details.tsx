@@ -121,7 +121,7 @@ export default function TransactionDetailsPage() {
   return (
     <>
       <Head>
-        <title>TX: {transaction.reference} | PayLens</title>
+        <title>TX: {transaction.reference} | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>

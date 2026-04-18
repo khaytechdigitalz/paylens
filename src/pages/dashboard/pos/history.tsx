@@ -79,7 +79,7 @@ export default function POSTerminalPage() {
   return (
     <>
       <Head>
-        <title>Terminal Management | PayLens</title>
+        <title>Terminal Management | CredDot</title>
       </Head>
 
       <Container maxWidth={themeStretch ? false : 'xl'}>
@@ -260,9 +260,7 @@ export default function POSTerminalPage() {
                       variant="soft"
                       color="primary"
                       endIcon={<Iconify icon="solar:arrow-right-linear" />}
-                      onClick={() =>
-                        router.push(`/dashboard/pos/${terminal.terminal_id}/details`)
-                      }
+                      onClick={() => router.push(`/dashboard/pos/${terminal.terminal_id}/details`)}
                     >
                       View Details
                     </Button>
