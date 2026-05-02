@@ -58,10 +58,12 @@ export default function BankingRecentTransitions({
 }: Props) {
   return (
     <Card {...other}>
-      <CardHeader title={title} subheader={subheader} sx={{ mb: 3 }} />
+      {/* 1. Reduced bottom margin from 3 to 1 */}
+      <CardHeader title={title} subheader={subheader} sx={{ mb: 1 }} />
 
       <TableContainer sx={{ overflow: 'unset' }}>
-        <Scrollbar sx={{ minWidth: 720 }}>
+        {/* 2. Added mb: -1 to Scrollbar to pull the Divider and Button up closer */}
+        <Scrollbar sx={{ minWidth: 720, mb: -1 }}>
           <Table>
             <TableHeadCustom headLabel={tableLabels} />
 
@@ -75,7 +77,8 @@ export default function BankingRecentTransitions({
 
       <Divider />
 
-      <Box sx={{ p: 2, textAlign: 'right' }}>
+      {/* 3. Reduced padding from 2 to 1.5 for a tighter finish */}
+      <Box sx={{ p: 1.5, textAlign: 'right' }}>
         <Button
           onClick={() => router.push('transactions/history')}
           size="small"

@@ -41,7 +41,8 @@ export const PATH_DASHBOARD = {
 
   funding: {
     root: path(ROOTS_DASHBOARD, '/funding'),
-    history: path(ROOTS_DASHBOARD, '/funding/history'),
+    usdt: path(ROOTS_DASHBOARD, '/funding/usdt'),
+    ngn: path(ROOTS_DASHBOARD, '/funding/ngn'),
     details: (details: string) => path(ROOTS_DASHBOARD, `/funding/${details}/details`),
     transactions: path(ROOTS_DASHBOARD, '/funding/transactions'),
   },

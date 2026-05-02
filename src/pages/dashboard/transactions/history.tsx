@@ -246,7 +246,7 @@ export default function PageFive() {
               size="small"
               color="primary"
             >
-              {['NGN'].map((lib) => (
+              {['NGN','USD'].map((lib) => (
                 <ToggleButton key={lib} value={lib} sx={{ fontWeight: 'bold', px: 2 }}>
                   {lib}
                 </ToggleButton>

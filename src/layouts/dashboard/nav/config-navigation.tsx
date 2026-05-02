@@ -18,6 +18,7 @@ const ICONS = {
   banking: icon('ic_banking'),
   analytics: icon('ic_analytics'),
   cart: icon('ic_cart'),
+  folder: icon('ic_folder'),
   label: icon('ic_label'),
   mail: icon('ic_mail'),
   booking: icon('ic_booking'),
@@ -46,7 +47,8 @@ export default function useNavConfig() {
           : []),
         */
 
-        { title: 'Virtual Accounts', path: PATH_DASHBOARD.funding.history, icon: ICONS.banking },
+        { title: 'Virtual Accounts', path: PATH_DASHBOARD.funding.ngn, icon: ICONS.banking },
+        { title: 'USDT Wallet', path: PATH_DASHBOARD.funding.usdt, icon: ICONS.folder },
         { title: 'Virtual Card', path: PATH_DASHBOARD.virtualcard.history, icon: ICONS.booking },
 
         {
