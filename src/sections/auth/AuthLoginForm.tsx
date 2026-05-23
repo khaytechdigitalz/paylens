@@ -18,6 +18,7 @@ import FormProvider, { RHFTextField } from '../../components/hook-form';
 type FormValuesProps = {
   email: string;
   password: string;
+  otp: string;
   afterSubmit?: string;
 };
 
@@ -51,7 +52,7 @@ export default function AuthLoginForm() {
 
   const onSubmit = async (data: FormValuesProps) => {
     try {
-      await login(data.email, data.password);
+      await login(data.email, data.password, data.otp ||'');
     } catch (error) {
       console.error(error);
 
