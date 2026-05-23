@@ -1,3 +1,4 @@
+/* eslint-disable prefer-destructuring */
 /* eslint-disable react/no-unknown-property */
 import Head from 'next/head';
 import { useState, useEffect, useCallback } from 'react';
@@ -6,7 +7,6 @@ import { useRouter } from 'next/router';
 import {
   Box,
   Card,
-  Grid,
   Stack,
   Container,
   Typography,
@@ -29,7 +29,7 @@ import { useSettingsContext } from '../../components/settings';
 
 export default function PaymentLinkInitializePage() {
   const theme = useTheme();
-  const { query, push } = useRouter();
+  const { query } = useRouter();
   const { themeStretch } = useSettingsContext();
 
   const [loading, setLoading] = useState(true);

@@ -51,6 +51,7 @@ export const PATH_DASHBOARD = {
     root: path(ROOTS_DASHBOARD, '/virtualcard'),
     history: path(ROOTS_DASHBOARD, '/virtualcard/history'),
     details: (details: string) => path(ROOTS_DASHBOARD, `/virtualcard/${details}/details`),
+    bridge: (details: string) => path(ROOTS_DASHBOARD, `/virtualcard/${details}/bridge`),
     transactions: path(ROOTS_DASHBOARD, '/virtualcard/transactions'),
   },
 

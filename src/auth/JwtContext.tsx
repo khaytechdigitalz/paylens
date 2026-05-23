@@ -136,6 +136,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [initialize]);
 
   // LOGIN
+  /*
   const device_name = 'web';
   const login = useCallback(async (email: string, password: string) => {
     const response = await axios.post('/auth/login', {
@@ -143,15 +144,62 @@ export function AuthProvider({ children }: AuthProviderProps) {
       device_name,
       password,
     });
-    const { token, user } = response.data.data;
-    setSession(token);
+    const { requires_2fa, message } = response.data;
+    if (requires_2fa === true) {
+      alert(message);
+    } else {
+      const { token, user } = response.data.data;
+      if (token) {
+        setSession(token);
 
-    dispatch({
-      type: Types.LOGIN,
-      payload: {
-        user,
-      },
-    });
+        dispatch({
+          type: Types.LOGIN,
+          payload: {
+            user,
+          },
+        });
+      }
+    }
+  }, []);
+  */
+
+  // 1. Locate this function in your AuthContext provider file
+  const device_name = 'web';
+  const login = useCallback(async (email: string, password: string, otp: string) => {
+    // 1. Declare the variable in the outer scope so it's accessible downstream
+    let response;
+    // 2. Safely check if OTP was provided (handles undefined, null, or empty string)
+    if (!otp) {
+      response = await axios.post('/auth/login', {
+        email,
+        device_name,
+        password,
+      });
+    } else {
+      response = await axios.post('/auth/2fa', {
+        email,
+        otp,
+      });
+    }
+    // 3. Extract properties safely from the response base
+    if (response.data?.data) {
+      const { token = '', user } = response.data.data;
+
+      // Only set the session if a token actually came back (non-2FA flow)
+      if (token) {
+        setSession(token);
+
+        dispatch({
+          type: Types.LOGIN,
+          payload: {
+            user,
+          },
+        });
+      }
+    }
+
+    // 4. Return the entire response payload so onSubmit can detect 'requires_2fa'
+    return response.data;
   }, []);
 
   // REGISTER

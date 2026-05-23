@@ -14,10 +14,8 @@ import {
   CircularProgress,
   Divider,
   Paper,
-  Badge,
   alpha,
   useTheme,
-  styled,
 } from '@mui/material';
 // layouts
 import DashboardLayout from '../../../layouts/dashboard';
@@ -28,20 +26,11 @@ import axios from '../../../utils/axios';
 
 // ----------------------------------------------------------------------
 
-const StyledSearch = styled(Paper)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  padding: '4px 12px',
-  width: 300,
-  backgroundColor: alpha(theme.palette.grey[500], 0.08),
-  boxShadow: 'none',
-  border: `1px solid ${alpha(theme.palette.grey[500], 0.16)}`,
-}));
-
-// Function to mask PAN (Card Number)
+// Function to mask PAN (Card Number) safely
 const maskCardNumber = (pan: string | null) => {
-  if (!pan) return '**** **** **** ****';
-  return `**** **** **** ${pan.slice(-4)}`;
+  if (!pan) return '••••  ••••  ••••  ••••';
+  const cleanPan = pan.replace(/\s+/g, '');
+  return `••••  ••••  ••••  ${cleanPan.slice(-4)}`;
 };
 
 VirtualCardLogPage.getLayout = (page: React.ReactElement) => (
@@ -60,9 +49,8 @@ export default function VirtualCardLogPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Endpoint updated to /virtualcard/log
       const response = await axios.get('/virtualcard/log');
-      setCards(response.data.cards);
+      setCards(response.data.cards || []);
     } catch (error) {
       setErrorMessage('Unable to retrieve virtual card data.');
       console.error(error);
@@ -74,6 +62,16 @@ export default function VirtualCardLogPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Route router handler conditionally matching bridgecard provider context safely
+  const handleManageCardRoute = (card: any) => {
+    const isBridge = String(card?.provider).toLowerCase() === 'bridgecard';
+    if (isBridge) {
+      router.push(`/dashboard/virtualcard/${card.card_id}/bridge`);
+    } else {
+      router.push(`/dashboard/virtualcard/${card.card_id}/details`);
+    }
+  };
 
   return (
     <>
@@ -102,8 +100,7 @@ export default function VirtualCardLogPage() {
             variant="contained"
             size="large"
             startIcon={<Iconify icon="solar:card-plus-bold-duotone" />}
-            // Updated push destination
-            onClick={() => router.push('/dashboard/virtualcard/request')}
+            onClick={() => router.push('/dashboard/virtualcard/bridge')}
             sx={{ boxShadow: theme.customShadows.primary, px: 3, fontWeight: 700 }}
           >
             Request New Card
@@ -116,124 +113,235 @@ export default function VirtualCardLogPage() {
           </Box>
         ) : (
           <Grid container spacing={3}>
-            {cards.map((card) => (
-              <Grid item xs={12} sm={6} md={4} key={card.id}>
-                <Card
-                  sx={{
-                    p: 0,
-                    overflow: 'hidden',
-                    border: `1px solid ${theme.palette.divider}`,
-                    transition: 'transform 0.2s',
-                    '&:hover': { transform: 'translateY(-4px)' },
-                  }}
-                >
-                  {/* CARD VISUAL HEADER */}
-                  <Box
+            {cards.map((card) => {
+              const isUsd = String(card.currency).toUpperCase() === 'USD';
+              const isActive = card.status === 'active';
+
+              // Dynamic Premium Glass Card Skin Rendering
+              let cardBackground = `linear-gradient(135deg, ${theme.palette.grey[800]} 0%, ${theme.palette.grey[900]} 100%)`; // Premium USD Dark Carbon
+              if (!isActive) {
+                cardBackground = `linear-gradient(135deg, ${theme.palette.grey[600]} 0%, ${theme.palette.grey[700]} 100%)`; // Inactive/Frozen Muted Matte
+              } else if (!isUsd) {
+                cardBackground = `linear-gradient(135deg, ${theme.palette.primary.darker} 0%, ${theme.palette.primary.main} 100%)`; // Corporate NGN Branding Blue
+              }
+
+              return (
+                <Grid item xs={12} sm={6} md={4} key={card.id}>
+                  <Card
                     sx={{
-                      p: 3,
-                      background:
-                        card.status === 'active'
-                          ? `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`
-                          : `linear-gradient(135deg, ${theme.palette.grey[700]} 0%, ${theme.palette.grey[600]} 100%)`,
-                      color: 'common.white',
-                      position: 'relative',
+                      p: 0,
+                      overflow: 'hidden',
+                      border: `1px solid ${theme.palette.divider}`,
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      '&:hover': {
+                        transform: 'translateY(-6px)',
+                        boxShadow: theme.customShadows.z12,
+                      },
                     }}
                   >
-                    <Stack
-                      direction="row"
-                      justifyContent="space-between"
-                      alignItems="flex-start"
-                      sx={{ mb: 4 }}
+                    {/* VISUAL HIGH-END CREDIT CARD FRAME */}
+                    <Box
+                      sx={{
+                        p: 3,
+                        background: cardBackground,
+                        color: 'common.white',
+                        position: 'relative',
+                        minHeight: 185,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                      }}
                     >
-                      <Iconify icon="solar:plain-2-bold-duotone" width={32} sx={{ opacity: 0.8 }} />
-                      <Typography variant="overline" sx={{ opacity: 0.8, fontWeight: 900 }}>
-                        {card.brand || 'VISA'}
-                      </Typography>
-                    </Stack>
+                      {/* Top Layer Matrix */}
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Iconify
+                            icon="solar:chip-bold"
+                            width={28}
+                            sx={{
+                              color: 'warning.light',
+                              transform: 'rotate(90deg)',
+                              opacity: 0.9,
+                            }}
+                          />
+                          <Iconify
+                            icon="solar:wireless-signals-bold"
+                            width={20}
+                            sx={{ opacity: 0.6, transform: 'rotate(90deg)' }}
+                          />
+                        </Stack>
 
-                    <Typography
-                      variant="h5"
-                      sx={{ letterSpacing: 3, mb: 1, fontFamily: 'monospace' }}
-                    >
-                      {maskCardNumber(card.pan)}
-                    </Typography>
+                        {/* Dynamic network visual brand rendering asset fallback */}
+                        <Iconify
+                          icon={
+                            String(card.brand).toLowerCase() === 'visa'
+                              ? 'logos:visa'
+                              : 'logos:mastercard'
+                          }
+                          width={42}
+                          style={{ filter: !isActive ? 'grayscale(100%)' : 'none' }}
+                        />
+                      </Stack>
 
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                        EXP: {card.expiry_month || 'XX'}/{card.expiry_year || 'XX'}
-                      </Typography>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                        {card.currency}
-                      </Typography>
-                    </Stack>
-                  </Box>
-
-                  {/* DETAILS SECTION */}
-                  <Box sx={{ p: 2.5 }}>
-                    <Stack
-                      direction="row"
-                      justifyContent="space-between"
-                      alignItems="center"
-                      sx={{ mb: 2 }}
-                    >
-                      <Box>
+                      {/* PAN Middle Section Matrix */}
+                      <Box sx={{ my: 2 }}>
                         <Typography
-                          variant="caption"
-                          sx={{ color: 'text.disabled', display: 'block' }}
-                        >
-                          Status
-                        </Typography>
-                        <Typography
-                          variant="subtitle2"
+                          variant="h5"
                           sx={{
-                            color: card.status === 'active' ? 'success.main' : 'warning.main',
-                            textTransform: 'capitalize',
+                            letterSpacing: 2,
+                            fontFamily: 'monospace',
+                            fontWeight: 600,
+                            textShadow: '1px 2px 4px rgba(0,0,0,0.3)',
                           }}
                         >
-                          {card.status}
+                          {maskCardNumber(card.pan)}
                         </Typography>
                       </Box>
-                      <Box sx={{ textAlign: 'right' }}>
-                        <Typography
-                          variant="caption"
-                          sx={{ color: 'text.disabled', display: 'block' }}
+
+                      {/* Card Lower Deck Details */}
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-end">
+                        <Box>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              opacity: 0.5,
+                              textTransform: 'uppercase',
+                              fontSize: '0.65rem',
+                              display: 'block',
+                              letterSpacing: 0.5,
+                            }}
+                          >
+                            Expiry Date
+                          </Typography>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontFamily: 'monospace', fontWeight: 700 }}
+                          >
+                            {card.expiry_month || 'XX'}/{String(card.expiry_year || 'XX').slice(-2)}
+                          </Typography>
+                        </Box>
+
+                        <Box
+                          sx={{
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: 1,
+                            bgcolor: alpha(theme.palette.common.white, 0.15),
+                            backdropFilter: 'blur(4px)',
+                            border: `1px solid ${alpha(theme.palette.common.white, 0.2)}`,
+                          }}
                         >
-                          Reference
-                        </Typography>
-                        <Typography variant="subtitle2" sx={{ fontFamily: 'monospace' }}>
-                          {card.reference}
-                        </Typography>
-                      </Box>
-                    </Stack>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: 900, letterSpacing: 0.5 }}
+                          >
+                            {String(card.currency).toUpperCase()}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </Box>
 
-                    <Divider sx={{ borderStyle: 'dashed', my: 2 }} />
+                    {/* CONTROL DATA DETAILS LAYER */}
+                    <Box sx={{ p: 2.5, bgcolor: 'background.paper' }}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Box>
+                          <Typography
+                            variant="caption"
+                            sx={{ color: 'text.disabled', display: 'block' }}
+                          >
+                            Card State
+                          </Typography>
+                          <Stack direction="row" alignItems="center" spacing={0.5}>
+                            <Box
+                              sx={{
+                                width: 7,
+                                height: 7,
+                                borderRadius: '50%',
+                                bgcolor: isActive ? 'success.main' : 'error.main',
+                              }}
+                            />
+                            <Typography
+                              variant="subtitle2"
+                              sx={{
+                                color: isActive ? 'success.main' : 'text.secondary',
+                                textTransform: 'uppercase',
+                                fontWeight: 700,
+                                fontSize: '0.75rem',
+                              }}
+                            >
+                              {card.status}
+                            </Typography>
+                          </Stack>
+                        </Box>
 
-                    <Button
-                      fullWidth
-                      variant="soft"
-                      color="inherit"
-                      onClick={() => router.push(`/dashboard/virtualcard/${card.card_id}/details`)}
-                      sx={{ fontWeight: 700 }}
-                    >
-                      Manage Card
-                    </Button>
-                  </Box>
-                </Card>
-              </Grid>
-            ))}
+                        <Box sx={{ textAlign: 'right' }}>
+                          <Typography
+                            variant="caption"
+                            sx={{ color: 'text.disabled', display: 'block' }}
+                          >
+                            Card ID
+                          </Typography>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{
+                              fontFamily: 'monospace',
+                              fontSize: '0.8rem',
+                              color: 'text.primary',
+                              fontWeight: 600,
+                            }}
+                          >
+                            {card.card_id || '---'}
+                          </Typography>
+                        </Box>
+                      </Stack>
+
+                      <Divider sx={{ borderStyle: 'dashed', my: 2 }} />
+
+                      <Button
+                        fullWidth
+                        variant="soft"
+                        color={isActive ? 'primary' : 'inherit'}
+                        onClick={() => handleManageCardRoute(card)}
+                        endIcon={<Iconify icon="solar:alt-arrow-right-linear" width={16} />}
+                        sx={{ fontWeight: 700, py: 1 }}
+                      >
+                        Manage Account
+                      </Button>
+                    </Box>
+                  </Card>
+                </Grid>
+              );
+            })}
 
             {cards.length === 0 && (
               <Grid item xs={12}>
-                <Paper sx={{ py: 10, textAlign: 'center', bgcolor: 'background.neutral' }}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    py: 10,
+                    textAlign: 'center',
+                    bgcolor: 'transparent',
+                    borderStyle: 'dashed',
+                    borderWidth: 2,
+                  }}
+                >
                   <Iconify
                     icon="solar:card-search-bold-duotone"
                     width={64}
                     sx={{ mb: 2, color: 'text.disabled' }}
                   />
                   <Typography variant="h6">No Virtual Cards Found</Typography>
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    You have not requested any virtual cards yet.
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
+                    You have not requested any corporate virtual cards yet.
                   </Typography>
+                  <Button
+                    variant="soft"
+                    color="primary"
+                    startIcon={<Iconify icon="solar:card-plus-bold-duotone" />}
+                    onClick={() => router.push('/dashboard/virtualcard/bridge')}
+                  >
+                    Issue Card Device Now
+                  </Button>
                 </Paper>
               </Grid>
             )}
