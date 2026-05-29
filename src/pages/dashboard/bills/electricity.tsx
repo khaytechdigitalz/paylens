@@ -1,6 +1,7 @@
+/* eslint-disable new-cap */
 /* eslint-disable no-nested-ternary */
 /* eslint-disable no-alert */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Head from 'next/head';
 // @mui
 import {
@@ -41,12 +42,14 @@ ElectricityPage.getLayout = (page: React.ReactElement) => <DashboardLayout>{page
 export default function ElectricityPage() {
   const theme = useTheme();
   const { themeStretch } = useSettingsContext();
+  const receiptRef = useRef<HTMLDivElement>(null);
 
   // Data States
   const [providers, setProviders] = useState<any[]>([]);
 
   // UI States
   const [loading, setLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [step, setStep] = useState<'input' | 'auth'>('input');
 
@@ -69,7 +72,7 @@ export default function ElectricityPage() {
   });
   const [result, setResult] = useState<any>(null);
 
-  // 1. Fetch Electricity Providers (Discos)
+  // Fetch Electricity Providers (Discos)
   const fetchProviders = useCallback(async () => {
     try {
       const response = await axios.get('/bills/electricity/providers');
@@ -83,7 +86,7 @@ export default function ElectricityPage() {
     fetchProviders();
   }, [fetchProviders]);
 
-  // 2. Verify Meter Number
+  // Verify Meter Number
   const handleVerifyCustomer = async () => {
     setIsVerifying(true);
     setErrorMessage(null);
@@ -95,16 +98,14 @@ export default function ElectricityPage() {
       });
       setVerifiedName(response.data.customer);
     } catch (error: any) {
-      setErrorMessage(
-        error?.message || 'Meter verification failed. Please check the number.'
-      );
+      setErrorMessage(error?.message || 'Meter verification failed. Please check the number.');
       setVerifiedName(null);
     } finally {
       setIsVerifying(false);
     }
   };
 
-  // 3. Security Auth Check
+  // Security Auth Check
   const handleCheckAuth = async () => {
     setLoading(true);
     try {
@@ -119,7 +120,7 @@ export default function ElectricityPage() {
     }
   };
 
-  // 4. Final Process Purchase
+  // Final Process Purchase
   const handleFinalPurchase = async () => {
     setLoading(true);
     setErrorMessage(null);
@@ -137,6 +138,63 @@ export default function ElectricityPage() {
       setErrorMessage(error?.message || 'Transaction could not be completed.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Safe 4-Digit String Split Token Formatter
+  const formatTokenString = (rawToken: string) => {
+    if (!rawToken) return 'N/A';
+    const cleaned = rawToken.replace(/[:-\s Token]/g, '');
+    return cleaned.match(/.{1,5}/g)?.join(' ') || rawToken;
+  };
+
+  // Document Isolation PDF Generation Pipeline
+  const handleDownloadPDF = async () => {
+    if (!receiptRef.current || !result) return;
+    setPdfLoading(true);
+
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
+
+      const originalElement = receiptRef.current;
+      const clonedElement = originalElement.cloneNode(true) as HTMLDivElement;
+
+      // Lock parameters onto the cloned canvas instance to avoid modal viewport crop limits
+      clonedElement.style.width = '420px';
+      clonedElement.style.position = 'absolute';
+      clonedElement.style.top = '-9999px';
+      clonedElement.style.left = '-9999px';
+      clonedElement.style.height = 'auto';
+      clonedElement.style.backgroundColor = theme.palette.background.paper;
+      document.body.appendChild(clonedElement);
+
+      const canvas = await html2canvas(clonedElement, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: theme.palette.background.paper,
+      });
+
+      document.body.removeChild(clonedElement);
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      const marginX = 20;
+      const imgWidth = pdfWidth - marginX * 2;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const topPosition = (pdfHeight - imgHeight) / 2 > 15 ? (pdfHeight - imgHeight) / 2 : 15;
+
+      pdf.addImage(imgData, 'PNG', marginX, topPosition, imgWidth, imgHeight);
+      pdf.save(`CredDot_Utility_Token_${result?.payout_ref || 'Receipt'}.pdf`);
+    } catch (error) {
+      console.error('PDF Build Execution Fault:', error);
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -362,60 +420,150 @@ export default function ElectricityPage() {
 
       {/* Success Modal */}
       <Dialog open={showSuccess} onClose={() => setShowSuccess(false)} fullWidth maxWidth="xs">
-        <DialogContent sx={{ textAlign: 'center', py: 6 }}>
-          <Iconify icon="solar:bolt-circle-bold" width={72} color="warning.main" sx={{ mb: 2 }} />
-          <Typography variant="h4">Payment Successful</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            {result?.message}
-          </Typography>
-
-          <Paper variant="outlined" sx={{ p: 2, mb: 4, bgcolor: 'background.neutral' }}>
-            <Stack spacing={1.5}>
-              <Stack direction="row" justifyContent="space-between">
-                <Typography variant="caption">Total Paid</Typography>
-                <Typography variant="subtitle2">
-                  {fCurrency(result?.data?.total || 0, 'NGN')}
-                </Typography>
-              </Stack>
-              <Divider />
-              <Stack direction="row" justifyContent="space-between">
-                <Typography variant="caption">Reference</Typography>
-                <Typography variant="subtitle2" sx={{ fontSize: 11 }}>
-                  {result?.payout_ref}
-                </Typography>
-              </Stack>
-              <Divider />
-              <Stack direction="row" justifyContent="space-between">
-                <Typography variant="caption">Token</Typography>
-                <Typography variant="subtitle2" sx={{ fontSize: 11 }}>
-                  {result?.data?.token}
-                </Typography>
-              </Stack>
-              <Divider />
-              <Stack direction="row" justifyContent="space-between">
-                <Typography variant="caption">Unit</Typography>
-                <Typography variant="subtitle2" sx={{ fontSize: 11 }}>
-                  {result?.data?.unit}
-                </Typography>
-              </Stack>
-              <Divider />
-              <Stack direction="row" justifyContent="space-between">
-                <Typography variant="caption">New Wallet Balance</Typography>
-                <Typography variant="h6" color="primary">
-                  {fCurrency(result?.data?.balance_after || 0, 'NGN')}
-                </Typography>
-              </Stack>
+        <DialogContent sx={{ textAlign: 'center', py: 5, px: 3 }}>
+          {/* ISOLATED COMPONENT FOR STABLE DOM RENDERING */}
+          <Box ref={receiptRef} sx={{ p: 1, bgcolor: 'background.paper', borderRadius: 2 }}>
+            <Stack alignItems="center" sx={{ textAlign: 'center', mb: 3 }}>
+              <Iconify
+                icon="solar:bolt-circle-bold"
+                width={64}
+                color="warning.main"
+                sx={{ mb: 1.5 }}
+              />
+              <Typography variant="h4" sx={{ fontWeight: 800 }}>
+                Payment Successful
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {result?.message || 'Token provision successful'}
+              </Typography>
             </Stack>
-          </Paper>
 
-          <Button
-            fullWidth
-            variant="contained"
-            size="large"
-            onClick={() => window.location.reload()}
-          >
-            Download Receipt
-          </Button>
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 2.5,
+                mb: 1,
+                bgcolor: 'background.neutral',
+                borderRadius: 1.5,
+                borderStyle: 'solid',
+              }}
+            >
+              <Stack spacing={1.8}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="caption" color="text.secondary">
+                    Total Paid
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    {fCurrency(result?.data?.total || form.amount || 0, 'NGN')}
+                  </Typography>
+                </Stack>
+                <Divider sx={{ borderStyle: 'dashed' }} />
+
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="caption" color="text.secondary">
+                    Reference
+                  </Typography>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+                  >
+                    {result?.payout_ref || 'N/A'}
+                  </Typography>
+                </Stack>
+                <Divider sx={{ borderStyle: 'dashed' }} />
+
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="caption" color="text.secondary">
+                    Unit Earned
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    {result?.data?.unit || '0.0'} kWh
+                  </Typography>
+                </Stack>
+                <Divider sx={{ borderStyle: 'dashed' }} />
+
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="caption" color="text.secondary">
+                    Wallet Balance
+                  </Typography>
+                  <Typography variant="subtitle2" color="primary.main" sx={{ fontWeight: 700 }}>
+                    {fCurrency(result?.data?.balance_after || 0, 'NGN')}
+                  </Typography>
+                </Stack>
+
+                {result?.data?.token && (
+                  <>
+                    <Divider sx={{ borderStyle: 'dashed' }} />
+                    <Box sx={{ mt: 1, pt: 1.5, borderTop: `1px dashed ${theme.palette.divider}` }}>
+                      <Typography
+                        variant="overline"
+                        color="warning.dark"
+                        sx={{ display: 'block', fontWeight: 800, mb: 0.5, letterSpacing: 0.5 }}
+                      >
+                        Prepaid Meter Token Pin
+                      </Typography>
+                      <Box
+                        sx={{
+                          p: 1.5,
+                          bgcolor: 'background.paper',
+                          borderRadius: 1,
+                          border: `1px solid ${theme.palette.divider}`,
+                        }}
+                      >
+                        <Typography
+                          variant="subtitle1"
+                          sx={{
+                            fontFamily: 'monospace',
+                            fontWeight: 800,
+                            letterSpacing: 1,
+                            color: 'text.primary',
+                          }}
+                        >
+                          {formatTokenString(result.data.token)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </>
+                )}
+              </Stack>
+            </Paper>
+          </Box>
+
+          <Stack spacing={1.5} sx={{ mt: 3 }}>
+            <Button
+              fullWidth
+              variant="contained"
+              size="large"
+              disabled={pdfLoading}
+              onClick={handleDownloadPDF}
+              startIcon={
+                pdfLoading ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <Iconify icon="solar:file-download-bold-duotone" />
+                )
+              }
+              sx={{
+                bgcolor: 'grey.900',
+                color: 'common.white',
+                '&:hover': { bgcolor: 'grey.800' },
+                fontWeight: 700,
+                height: 48,
+              }}
+            >
+              {pdfLoading ? 'Generating...' : 'Download PDF Receipt'}
+            </Button>
+
+            <Button
+              fullWidth
+              variant="outlined"
+              color="inherit"
+              onClick={() => setShowSuccess(false)}
+              sx={{ fontWeight: 700, height: 48 }}
+            >
+              Dismiss
+            </Button>
+          </Stack>
         </DialogContent>
       </Dialog>
     </>

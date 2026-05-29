@@ -202,6 +202,7 @@ export default function TransactionDetailsPage() {
                 </Box>
                 <Typography variant="h2">
                   {fCurrency(transaction.amount, transaction.currency)}
+                  <small>{transaction.currency}</small>
                 </Typography>
                 <Label status={transaction.status} />
               </Stack>
@@ -221,6 +222,7 @@ export default function TransactionDetailsPage() {
                   </Typography>
                   <Typography variant="subtitle2">
                     {fCurrency(transaction.amount, transaction.currency)}
+                    <small>{transaction.currency}</small>
                   </Typography>
                 </Stack>
                 <Stack direction="row" justifyContent="space-between">
@@ -229,12 +231,14 @@ export default function TransactionDetailsPage() {
                   </Typography>
                   <Typography variant="subtitle2" sx={{ color: 'error.main' }}>
                     -{fCurrency(transaction.fee, transaction.currency)}
+                    <small>{transaction.currency}</small>
                   </Typography>
                 </Stack>
                 <Stack direction="row" justifyContent="space-between">
                   <Typography variant="h6">Settled Amount</Typography>
                   <Typography variant="h6" sx={{ color: 'primary.main' }}>
                     {fCurrency(total_deducted, transaction.currency)}
+                    <small>{transaction.currency}</small>
                   </Typography>
                 </Stack>
               </Stack>
@@ -289,6 +293,7 @@ export default function TransactionDetailsPage() {
                     </Typography>
                     <Typography variant="h4">
                       {fCurrency(transaction.balance_before, transaction.currency)}
+                      <small>{transaction.currency}</small>
                     </Typography>
                   </Grid>
                   <Grid item xs={12} sm={6} sx={{ p: 3 }}>
@@ -297,6 +302,7 @@ export default function TransactionDetailsPage() {
                     </Typography>
                     <Typography variant="h4">
                       {fCurrency(transaction.balance_after, transaction.currency)}
+                      <small>{transaction.currency}</small>
                     </Typography>
                   </Grid>
                 </Grid>

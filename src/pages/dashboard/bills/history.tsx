@@ -188,7 +188,6 @@ export default function BillsHistoryPage() {
                   title={service.title}
                   amount={fCurrency(categoryData?.total_amount || 0, 'NGN')}
                   icon={<Iconify icon={service.icon} width={32} />}
-                  
                 />
                 <Typography
                   variant="caption"
@@ -274,7 +273,7 @@ export default function BillsHistoryPage() {
                       <TableCell>{row.beneficiary}</TableCell>
                       <TableCell sx={{ textTransform: 'uppercase' }}>{row.network}</TableCell>
                       <TableCell sx={{ fontWeight: 'bold' }}>
-                        {fCurrency(row.amount, 'NGN')}
+                        {fCurrency(row.amount, 'NGN')}NGN
                       </TableCell>
                       <TableCell>
                         <Box
