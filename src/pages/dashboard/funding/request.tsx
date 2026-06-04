@@ -118,7 +118,7 @@ export default function RequestVirtualAccountPage() {
       enqueueSnackbar(response.data.message || 'Virtual Account Created Successfully!', {
         variant: 'success',
       });
-      router.push('/dashboard/funding/history/');
+      router.push('/dashboard/funding/ngn/');
     } catch (e: any) {
       const errorMessage = e?.message || 'Request failed. Please try again.';
       setError(errorMessage);
