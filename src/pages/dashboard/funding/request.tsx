@@ -40,6 +40,12 @@ const BANK_PROVIDERS = [
     subtitle: 'Reliable Transfers',
     icon: 'solar:shield-check-bold-duotone',
   },
+  {
+    id: 'vfd',
+    title: 'VFD Microfinance',
+    subtitle: 'Digital First',
+    icon: 'solar:shield-check-bold-duotone',
+  },
   /*
   {
     id: 'providus',
@@ -51,12 +57,6 @@ const BANK_PROVIDERS = [
     id: 'gtb',
     title: 'GTBank',
     subtitle: 'Mainstream Choice',
-    icon: 'solar:shield-check-bold-duotone',
-  },
-  {
-    id: 'vfd',
-    title: 'VFD Microfinance',
-    subtitle: 'Digital First',
     icon: 'solar:shield-check-bold-duotone',
   },
   */

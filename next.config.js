@@ -4,6 +4,7 @@ module.exports = {
   trailingSlash: true,
   env: {
     // HOST
+    // HOST_API_KEY: 'https://findash.edubiller.com/api/user/',
     HOST_API_KEY: 'https://api.creddot.com/api/user/',
     // HOST_API_KEY: 'http://localhost/trybesave_creddot/api/user',
   },
