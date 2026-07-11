@@ -97,7 +97,7 @@ export default function ApiInitializePage() {
                     variant="subtitle2"
                     sx={{ fontFamily: 'monospace', color: 'text.primary' }}
                   >
-                    /transaction/initialize
+                    [BASEURL]/transaction/initialize
                   </Typography>
                 </Stack>
 

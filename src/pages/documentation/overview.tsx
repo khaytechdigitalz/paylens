@@ -143,7 +143,7 @@ export default function ApiOverviewPage() {
                     BASE URL
                   </Typography>
                   <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                    https://api.creddot.com/v1
+                    https://api.creddot.com/api/v1
                   </Typography>
                   <IconButton
                     size="small"
@@ -177,7 +177,7 @@ export default function ApiOverviewPage() {
                       variant="body2"
                       sx={{ fontFamily: 'monospace', color: '#9CDCFE', lineHeight: 1.6 }}
                     >
-                      curl https://api.creddot.com/v1/transactions \<br />
+                      curl [BASEURL]/transactions \<br />
                       &nbsp;&nbsp;-u <span style={{ color: '#CE9178' }}>YOUR API KEY</span>: \
                       <br />
                       &nbsp;&nbsp;-H{' '}

@@ -48,9 +48,10 @@ export default function useNavConfig() {
         */
 
         { title: 'Virtual Accounts', path: PATH_DASHBOARD.funding.ngn, icon: ICONS.banking },
+        /*
         { title: 'USDT Wallet', path: PATH_DASHBOARD.funding.usdt, icon: ICONS.folder },
         { title: 'Virtual Card', path: PATH_DASHBOARD.virtualcard.history, icon: ICONS.booking },
-
+        */
         {
           title: 'Transactions',
           path: PATH_DASHBOARD.transactions.root,

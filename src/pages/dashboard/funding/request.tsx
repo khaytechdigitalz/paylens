@@ -34,6 +34,7 @@ const BANK_PROVIDERS = [
     subtitle: 'Instant Activation',
     icon: 'solar:shield-check-bold-duotone',
   },
+  /*
   {
     id: 'safehaven',
     title: 'SafeHaven MFB',
@@ -46,17 +47,17 @@ const BANK_PROVIDERS = [
     subtitle: 'Digital First',
     icon: 'solar:shield-check-bold-duotone',
   },
-  /*
-  {
-    id: 'providus',
-    title: 'Providus Bank',
-    subtitle: 'Premium Settlements',
-    icon: 'solar:shield-check-bold-duotone',
-  },
   {
     id: 'gtb',
     title: 'GTBank',
     subtitle: 'Mainstream Choice',
+    icon: 'solar:shield-check-bold-duotone',
+  },  
+
+  {
+    id: 'providus',
+    title: 'Providus Bank',
+    subtitle: 'Premium Settlements',
     icon: 'solar:shield-check-bold-duotone',
   },
   */
