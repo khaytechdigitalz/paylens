@@ -24,8 +24,10 @@ const NAV_ITEMS = [
   { label: 'Overview', href: '/documentation/overview' },
   { label: 'Initialize', href: '/documentation/initialize' },
   { label: 'Verify', href: '/documentation/verify' },
+  /*
   { label: 'Payout', href: '/documentation/payout' },
   { label: 'Webhooks', href: '/documentation/webhooks' },
+   */
   { label: 'Error Codes', href: '/documentation/errorcode' },
   { label: 'Go-Live', href: '/documentation/golive' },
 ];

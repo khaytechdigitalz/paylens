@@ -75,7 +75,7 @@ export default function ApiVerifyPage() {
                     variant="subtitle2"
                     sx={{ fontFamily: 'monospace', color: 'text.primary' }}
                   >
-                    /transaction/verify/:reference
+                    [BASEURL]/transaction/verify/:reference
                   </Typography>
                 </Stack>
 
@@ -144,7 +144,8 @@ export default function ApiVerifyPage() {
                   </Box>
                   <Box sx={{ p: 2 }}>
                     <Typography variant="body2" sx={{ fontFamily: 'monospace', color: '#9CDCFE' }}>
-                      curl https://api.creddot.com/v1/transaction/verify/CRDDT_123 \<br />
+                      curl [BASEURL]/transaction/verify/CRDDT_123
+                      <br />
                       &nbsp;&nbsp;-H "Authorization: Bearer YOUR_SECRET_KEY"
                     </Typography>
                   </Box>
