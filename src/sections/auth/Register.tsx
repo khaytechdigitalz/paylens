@@ -56,7 +56,7 @@ export default function AuthRegisterForm() {
 
   const [activeStep, setActiveStep] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
-  const [accountType, setAccountType] = useState<'personal' | 'business'>('personal');
+  const [accountType, setAccountType] = useState<'personal' | 'business'>('business');
 
   // Schema handles conditional validation for Business type
   const RegisterSchema = Yup.object().shape({
@@ -202,7 +202,7 @@ export default function AuthRegisterForm() {
             {activeStep === 0 && (
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 2 }}>
-                  I am registering as a:
+                  I am registering a:
                 </Typography>
                 <ToggleButtonGroup
                   fullWidth
@@ -211,14 +211,18 @@ export default function AuthRegisterForm() {
                   onChange={(e, v) => v && setAccountType(v)}
                   color="primary"
                 >
-                  <ToggleButton value="personal" sx={{ py: 3, flexDirection: 'column', gap: 1 }}>
-                    <Iconify icon="solar:user-bold-duotone" width={32} />
-                    <Typography variant="subtitle2">Individual</Typography>
-                  </ToggleButton>
                   <ToggleButton value="business" sx={{ py: 3, flexDirection: 'column', gap: 1 }}>
                     <Iconify icon="solar:shop-bold-duotone" width={32} />
-                    <Typography variant="subtitle2">Business</Typography>
+                    <Typography variant="subtitle2">Business Account</Typography>
                   </ToggleButton>
+
+                  {/*
+                  <ToggleButton value="personal" sx={{ py: 3, flexDirection: 'column', gap: 1 }}>
+                    <Iconify icon="solar:user-bold-duotone" width={32} />
+                    <Typography variant="subtitle2">Individual Account</Typography>
+                  </ToggleButton>
+
+                  */}
                 </ToggleButtonGroup>
               </Box>
             )}
