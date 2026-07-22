@@ -155,6 +155,7 @@ export default function BusinessSettingsPage() {
         <Grid container spacing={4}>
           {/* Left Column: Limits & Core Settings */}
           <Grid item xs={12} md={8}>
+            {/*
             <Card sx={{ mb: 4, overflow: 'hidden' }}>
               <CardHeader
                 title="Transaction Limits"
@@ -215,6 +216,7 @@ export default function BusinessSettingsPage() {
                 </Grid>
               </Box>
             </Card>
+            */}
 
             <Card sx={{ p: 4 }}>
               <Typography variant="h6" gutterBottom>

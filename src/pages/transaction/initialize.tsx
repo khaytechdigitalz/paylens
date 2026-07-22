@@ -263,8 +263,29 @@ export default function CredDotCheckoutPage() {
                     fontWeight: 700,
                   }}
                 >
-                  Amount: {transactionData?.transaction?.amount?.toLocaleString()} • Fee:{' '}
-                  {processingFee?.toLocaleString()}
+                  Transaction Amount:
+                  {transactionData?.transaction?.amount?.toLocaleString()} <small> NGN</small>
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: { xs: 'block', md: 'none' },
+                    color: 'text.disabled',
+                    fontWeight: 700,
+                  }}
+                >
+                  Processing Fee: {processingFee?.toLocaleString()}
+                  <small> NGN</small>
+                </Typography>
+                <Typography
+                  color="orange"
+                  variant="caption"
+                  sx={{
+                    display: { xs: 'block', md: 'none' },
+                    fontWeight: 700,
+                  }}
+                >
+                  <a>{transactionData?.transaction?.fee_structure}</a>
                 </Typography>
               </Box>
             </Stack>
@@ -328,14 +349,23 @@ export default function CredDotCheckoutPage() {
                     {transactionData?.transaction?.amount?.toLocaleString()}
                   </Typography>
                 </Stack>
+
                 <Stack direction="row" justifyContent="space-between">
                   <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
                     Processing Fee
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {transactionData?.transaction?.currency} {processingFee?.toLocaleString()}
+                    <br />
                   </Typography>
                 </Stack>
+
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography variant="body2" color="orange" sx={{ fontWeight: 600 }}>
+                    {transactionData?.transaction?.fee_structure}
+                  </Typography>
+                </Stack>
+
                 <Divider sx={{ my: 1 }} />
                 <Stack direction="row" justifyContent="space-between" alignItems="baseline">
                   <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
