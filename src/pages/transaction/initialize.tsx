@@ -286,6 +286,7 @@ export default function CredDotCheckoutPage() {
                   }}
                 >
                   <a>{transactionData?.transaction?.fee_structure}</a>
+                  
                 </Typography>
               </Box>
             </Stack>
@@ -360,11 +361,23 @@ export default function CredDotCheckoutPage() {
                   </Typography>
                 </Stack>
 
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="orange" sx={{ fontWeight: 600 }}>
-                    {transactionData?.transaction?.fee_structure}
-                  </Typography>
-                </Stack>
+                <Alert
+                  severity="warning"
+                  icon={<Iconify icon="solar:info-circle-bold" />}
+                  sx={{
+                    borderRadius: 1.5,
+                    bgcolor: alpha(theme.palette.warning.main, 0.05),
+                    border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`,
+                    '& .MuiAlert-message': {
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: 'info.darker',
+                    },
+                    display: { xs: 'none', md: 'flex' },
+                  }}
+                >
+                  {transactionData?.transaction?.fee_structure}
+                </Alert>
 
                 <Divider sx={{ my: 1 }} />
                 <Stack direction="row" justifyContent="space-between" alignItems="baseline">
