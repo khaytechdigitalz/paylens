@@ -20,7 +20,7 @@ export default class MyDocument extends Document {
           <link rel="manifest" href="/manifest.json" />
 
           {/* PWA primary color */}
-          <meta name="theme-color" content={palette('light').primary.main} />
+          <meta name="theme-color" content="#1770f3" />
 
           {/* Favicon */}
           <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
