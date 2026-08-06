@@ -6,7 +6,7 @@ import createEmotionServer from '@emotion/server/create-instance';
 // utils
 import createEmotionCache from '../utils/createEmotionCache';
 // theme
-import palette from '../theme/palette';
+// import palette from '../theme/palette';
 import { primaryFont } from '../theme/typography';
 
 // ----------------------------------------------------------------------
@@ -34,10 +34,13 @@ export default class MyDocument extends Document {
           {/* Meta */}
           <meta
             name="description"
-            content="The starting point for your next project with Minimal UI Kit, built on the newest version of Material-UI ©, ready to be customized to your style"
+            content="Creddot is your all-in-one fintech solution for seamless payments, instant credit access, and smart financial management. Experience fast, secure, and reliable digital transactions."
           />
-          <meta name="keywords" content="react,material,kit,application,dashboard,admin,template" />
-          <meta name="author" content="Minimal UI Kit" />
+          <meta
+            name="keywords"
+            content="creddot, fintech, digital payments, credit access, financial services, online money transfer, secure banking, financial technology"
+          />
+          <meta name="author" content="Creddot" />
         </Head>
 
         <body>
